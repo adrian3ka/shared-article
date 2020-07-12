@@ -7,22 +7,22 @@ Long story short scrum is a framework within which people can address complex ad
 while productively and creatively delivering products of the highest possible value.
 
 Building a machine learning model have its own pattern, here we go with the step:
-- Problem: usually this part is a problem that came from the user to be solved by using automated program. The automated
+- <b>Problem</b>: usually this part is a problem that came from the user to be solved by using automated program. The automated
   program could be hard-coded system, a rule engine, data-pipeline also with a model already derived from the
   analysis from the attribute that already provided by the data pipeline. Here we go our part as an engineer we should
   build the system properly in the right order (Be careful to be not over engineered in the early stage)
-- Data Collection: As I told you before, we could only build a model if we already a good pipeline first.
+- <b>Data Collection</b>: As I told you before, we could only build a model if we already a good pipeline first.
   For this chapter I would not explain to you how to build a good pipeline with its best practice. It would take another
   article to be explained well. So you can stay tune to have a complete understanding how to build a good machine learning 
   pipeline, and it's model. Basically this part is collecting data to be used for the modelling step.
-- Modelling: This is a development part if you (as engineer) already decide that our system is well-prepared to be moved
+- <b>Modelling</b>: This is a development part if you (as engineer) already decide that our system is well-prepared to be moved
   to this step. Usually data collection could be take up to 2 - 3 months to make sure it's already stable and well collected.
   So we could have a grasp about it (Never build a model we could not grasp from the early step). In this part we could
   elaborate with the data scientist or as an engineer you could define your own model by doing a black-box development system.
   Actually black-box is not a bad system, I will try to cover that in another article. A simple intermezzo about black-box is
   where you develop a model, that you really didn't need to know what's the calculation inside the box (system) but it will
   magically define a great output for you.
-- Serving / Scoring: The goal of every machine learning model is predicting the result (include scoring, classifying, labelling, etc)
+- <b>Serving / Scoring</b>: The goal of every machine learning model is predicting the result (include scoring, classifying, labelling, etc)
   the other data input with related / same attributes. Predicting the input parameters,
   actually include transforming into the right data type in example we use naive bayes as the model predictor
   you should convert enum type into the numeric (int / double) data type, so the predictor could handle it well.
@@ -66,7 +66,7 @@ Building a machine learning model have its own pattern, here we go with the step
   }
   ```
   As we could see that we are encode the preference using binary mode, because it's not gradable.
-- Evaluation: Every model should be evaluated to increase its performance and its accuracy. In this stage we try to analyze
+- <b>Evaluation</b>: Every model should be evaluated to increase its performance and its accuracy. In this stage we try to analyze
   the current model. After that we will try to (re)modeling it to achieve the highest accuracy.
   
 From the explanation above we could conclude that the pattern could be framed into the flowchart below:
