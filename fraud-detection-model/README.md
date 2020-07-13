@@ -165,7 +165,8 @@ As we already view the component consists of:
 - <b>Map of Algorithm</b>: The available algorithm to be used by the engine. The `naive` came from `engine.json` file, where
   its resides on `algorithms` attributes. Every algorithm class, in example `NaiveBayesAlgorithm` class should override
   `train` and `predict` function. As we expected by its name they will do their job to train and predict the model, to have
-  a good understanding behind the scene better you have to learn naive bayes algorithm (you could find a simple explanation.
+  a good understanding behind the scene better you have to learn naive bayes algorithm 
+  (you could find a simple explanation on the section above if you just now rush to this part)
 - <b>Serving</b>: Serving component is where post-processing occurs. For example, if the user have a transaction greater 
   than 2 billion we wanted to return decision to the client as `SUSPICIOUS`. In this case you could combine it with your
   hardcoded rules or any other rules-engine that came from business or non engineer user. Trust me this case would be existed
@@ -293,3 +294,4 @@ cover unit test and evaluation part on the other article.
 REFERENCES:
 - https://www.scrum.org/resources/what-is-scrum accessed at 12 July 2020.
 - https://predictionio.apache.org/ accessed at 12 July 2020.
+- https://en.wikipedia.org/wiki/Naive_Bayes_classifier#:~:text=In%20statistics%2C%20Na%C3%AFve%20Bayes%20classifiers,the%20simplest%20Bayesian%20network%20models accessed at 12 July 2020.
