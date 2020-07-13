@@ -6,8 +6,8 @@ Prerequisites:
 - [x] Naive Bayes
 - [x] Scala
 - [x] Java
-- [x] Scrum
 - [x] Docker
+- [x] Functional Programming
 
 In this era we actually have a lot of problems that could be solved by
 machine learning model. Almost every problem have the same development cycle.
@@ -20,7 +20,7 @@ Building a machine learning model have its own pattern, here we go with the step
   program could be hard-coded system, a rule engine, data-pipeline also with a model already derived from the
   analysis from the attribute that already provided by the data pipeline. Here we go our part as an engineer we should
   build the system properly in the right order (Be careful to be not over engineered in the early stage)
-- Data Collection: As I told you before, we could only build a model if we already a good pipeline first.
+- Data Collection: As I told you before, we could only build a model if we already have a good pipeline first.
   For this chapter I would not explain to you how to build a good pipeline with its best practice. It would take another
   article to be explained well. So you can stay tune to have a complete understanding how to build a good machine learning 
   pipeline, and it's model. Basically this part is collecting data to be used for the modelling step.
@@ -29,7 +29,7 @@ Building a machine learning model have its own pattern, here we go with the step
   So we could have a grasp about it (Never build a model we could not grasp from the early step). In this part we could
   elaborate with the data scientist or as an engineer you could define your own model by doing a black-box development system.
   Actually black-box is not a bad system, I will try to cover that in another article. A simple intermezzo about black-box is
-  where you develop a model, that you really didn't need to know what's the calculation inside the box (system) but it will
+  where you develop a model, that you really didn't need to know what's the calculation inside the box (system), but it will
   magically define a great output for you.
 - Serving / Scoring: The goal of every machine learning model is predicting the result (include scoring, classifying, labelling, etc)
   the other data input with related / same attributes. Predicting the input parameters,
@@ -57,7 +57,7 @@ Building a machine learning model have its own pattern, here we go with the step
     
       We could encode it into BASIC (1.0), SILVER (2.0), GOLD (3.0), PLATINUM (4.0).
 
-  So for the clarity I will try to give an example a customer have attributes:
+  So for the clarity I will try to give an example with customer attributes:
     - Customer Age Account `[INTEGER]`: 8 Months
     - Customer Salary `[INTEGER]`: 8.000.000
     - Customer Loyalty Level `[CustomerLoyaltyLevelEnum]`: SILVER
@@ -74,7 +74,7 @@ Building a machine learning model have its own pattern, here we go with the step
     "preferenceSport": 0
   }
   ```
-  As we could see that we are encode the preference using binary mode, because it's not gradable.
+  As we could see that we encode the preference using binary mode, because it's not gradable.
 - Evaluation: Every model should be evaluated to increase its performance and its accuracy. In this stage we try to analyze
   the current model. After that we will try to (re)modeling it to achieve the highest accuracy.
   
@@ -123,22 +123,66 @@ A naive Bayes classifier considers each of these features to contribute independ
 probability that this fruit is an apple, regardless of any possible correlations between the color, roundness, 
 and diameter features.
 
-Going back to the main topic, out model consist of 4 parameters, or we can say it as 4 features. These are:
+Going back to the main topic, out model consist of 5 parameters, or we can say it as 5 features. These are:
 - TransactionVelocity `[transactionVelocity]`: How much the transaction occurs in the last session or window.
 - GTV `[gtv]`: Sum all of any amount that occurs in the transaction whether its cash in or cash out.
 - Total related account `[relatedAccount]`: In this case we could say the related account in the last window transaction.
 - Account age in months `[accountAge]`: These features are indicate how long the account already resides in our platform.
 - Card Type `[cardType]`: These features tell the card type from user whether <b>[SILVER/GOLD/PLATINUM]</b>
 
-I know you are already wanted to jump to the main part, so you can start with starting docker. 
-All the docker content is already prepared.
+---
+<h3>SDK</h3>
+I will try to cover the Prediction IO SDK for Scala language, because currently PredictionIO only available in scala
+language. Plus point if you already experienced with java programming languages, because the class / package we have 
+in java, could be reusable in scala language.
+
+---
+<h3>Code Explanation</h3>
+
+In PredictionIO, we should define files `engine.json` to define the algorithm that we want to use also its 
+hyper-parameters, and the main engine class to be run. The other files required by this framework is `template.json`
+file, it contains information about minimum pio version to run the specified model.
+
+Okay let's start from the main class we already define in `engine.json`. In `FraudDetectionModelEngine` we should
+override `apply` function that from the `EngineFactory` class.
+```
+def apply() = {
+    new Engine(
+      classOf[DataSource],
+      classOf[Preparator],
+      Map("naive" -> classOf[NaiveBayesAlgorithm]),
+      classOf[Serving])
+  }
+```
+As we already view the component consists of:
+- <b>DataSource</b>: The responsibilities of this class is to feed the data that already exists in the events' resource.
+  Data Source reads data from the data store of Event Server and then Data Preparator prepares RDD[LabeledPoint] 
+  for the Naive Bayes algorithm.
+- <b>Preparator</b>: Data Preparator is where pre-processing actions occurs. 
+  For example, one may want to remove some very popular items from the training data because she thinks that these items
+  may not help to find an individual person's tastes or one may have a black list of item she wants to remove from the 
+  training data before feeding it to the algorithm. As for the code the `prepare` method simply passes the ratings from TrainingData to PreparedData.
+- <b>Map of Algorithm</b>: The available algorithm to be used by the engine. The `naive` came from `engine.json` file, where
+  its resides on `algorithms` attributes. Every algorithm class, in example `NaiveBayesAlgorithm` class should override
+  `train` and `predict` function. As we expected by its name they will do their job to train and predict the model, to have
+  a good understanding behind the scene better you have to learn naive bayes algorithm (you could find a simple explanation.
+- <b>Serving</b>: Serving component is where post-processing occurs. For example, if the user have a transaction greater 
+  than 2 billion we wanted to return decision to the client as `SUSPICIOUS`. In this case you could combine it with your
+  hardcoded rules or any other rules-engine that came from business or non engineer user. Trust me this case would be existed
+  in real life example.
+
+---
+<h3>Model Training and Deployment</h3>
+
+I know you are already wanted to jump to the main part, so you can start with starting docker that I already prepared. 
 Just run the command below:
 ```
 docker run -it -p 8001:8000 -p 7071:7070 adrian3ka/pio:0.0.2 /bin/bash
 pio-start-all
 ```
 
-To check whether the engine is ready to go you could doing:
+Please wait 10 up to 30 seconds to let the engine warm up first. If you check it too early maybe you could get
+some error message. To check whether the engine is ready to go you could do:
 ```
 pio status
 ```
@@ -147,7 +191,6 @@ The expected result from the command above is:
 ```
 [INFO] [Management$] Your system is all ready to go.
 ```
-
 
 After the pio engine already started, we could start to importing the data. Before we proceed
 it's better if we have a grasp about the data that would be imported. The data resides in the
@@ -211,25 +254,37 @@ pio deploy
 ```
 
 To check whether to engine built and trained correctly we could verify by our data train:
+
+The curl below should return FRAUDSTER:
 ```
 curl -H "Content-Type: application/json" -d \
 '{ "transactionVelocity":10, "gtv":165000000, "relatedAccount":1, "accountAge": 3, "cardType": "GOLD" }'\
 http://localhost:8001/queries.json
 ``` 
-The curl above should return FRAUDSTER
 
+The curl below should return SAFE:
 ```
 curl -H "Content-Type: application/json" -d \
 '{ "transactionVelocity":1, "gtv":450000, "relatedAccount":1, "accountAge": 9, "cardType": "SILVER" }' \
 http://localhost:8001/queries.json
 ``` 
-The curl above should return SAFE
+
+The curl below should return SUSPICIOUS:
 ```
 curl -H "Content-Type: application/json" -d \
 '{ "transactionVelocity":4, "gtv":135000000, "relatedAccount":1, "accountAge": 96, "cardType": "PLATINUM" }' \
 http://localhost:8001/queries.json
 ``` 
-The curl above should return SUSPICIOUS
+
+The curl below should return SUSPICIOUS, actually it's returning SAFE, 
+but we add some hardcoded rules in `Serving` components
+```
+curl -H "Content-Type: application/json" -d \
+'{ "transactionVelocity":6, "gtv":2000000001, "relatedAccount":6, "accountAge": 108, "cardType": "PLATINUM" }' \
+http://localhost:8001/queries.json
+``` 
+
+---
 
 So from the model above we could try some any other possibilities, you should feed more data to get a better result. 
 So from here you can already deploy and built your own model. I think its already long enough for now, I will try to

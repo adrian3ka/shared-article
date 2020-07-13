@@ -16,6 +16,7 @@ class DataSource(val dsp: DataSourceParams)
 
   override
   def readTraining(sc: SparkContext): TrainingData = {
+    logger.info("***************=========== readTraining on DataSource executed ===========***************")
     val labeledPoints: RDD[LabeledPoint] = DataSourceHelper.aggregateDataSource(dsp, sc)
 
     new TrainingData(labeledPoints)
@@ -24,6 +25,7 @@ class DataSource(val dsp: DataSourceParams)
   override
   def readEval(sc: SparkContext)
   : Seq[(TrainingData, EmptyEvaluationInfo, RDD[(Model, ActualResult)])] = {
+    logger.info("***************=========== readEval on DataSource executed ===========***************")
     require(dsp.evalK.nonEmpty, "DataSourceParams.evalK must not be None")
 
     val labeledPoints: RDD[LabeledPoint] = DataSourceHelper.aggregateDataSource(dsp, sc)

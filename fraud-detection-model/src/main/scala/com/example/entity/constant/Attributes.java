@@ -11,4 +11,6 @@ public class Attributes {
   public static final String FRAUD_STATUS = "fraudStatus";
 
   public static final Double GTV_NORMALIZER = 10000000D;
+
+  public static final Double TRANSACTION_AMOUNT_THRESHOLD = 200000000D;
 }
