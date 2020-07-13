@@ -8,7 +8,7 @@ Prerequisites:
 - [x] Java
 - [x] Docker
 - [x] Functional Programming
-
+---
 In this era we actually have a lot of problems that could be solved by
 machine learning model. Almost every problem have the same development cycle.
 In engineering development lifecycle we have a popular methodology to deliver our product to the user that called scrum.
@@ -87,7 +87,7 @@ From the explanation above we could conclude that the pattern could be framed in
                                                     |-----| Evaluation |<-----|
                                                            ------------
 ```
-
+---
 As we already found the development pattern, we could use apache prediction io as the development framework to be used 
 for solving our current real life problem, because apache prediction io adapt to this pattern using the DASE pattern.
 - `[D]` Data Source and Data Preparator
