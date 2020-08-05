@@ -137,10 +137,44 @@ public class Main {
     .revStop(BooleanEnum.No)
     .build();
 
+  // 10th data on jupyter notebook
+  /**
+   * predict	No	      Yes
+   * Yes	    0.0245814	0.975419
+   */
+  private static final ReorderDataModel reorderDataModel10 = ReorderDataModel.builder()
+    .sku(1116870D)
+    .nationalInv(-7D)
+    .leadTime(8D)
+    .inTransitQty(0D)
+    .forecast3Month(56D)
+    .forecast6Month(96D)
+    .forecast9Month(112D)
+    .sales1Month(13D)
+    .sales3Month(30D)
+    .sales6Month(56D)
+    .sales9Month(76D)
+    .minBank(0D)
+    .potentialIssue(BooleanEnum.No)
+    .piecesPastDue(0D)
+    .perf6MonthAvg(0.97D)
+    .perf12MonthAvg(0.92D)
+    .localBoQty(7D)
+    .deckRisk(BooleanEnum.No)
+    .deckRisk(BooleanEnum.No)
+    .oeConstraint(BooleanEnum.No)
+    .ppapRisk(BooleanEnum.No)
+    .stopAutoBuy(BooleanEnum.Yes)
+    .revStop(BooleanEnum.No)
+    .build();
+
   public static void main(String[] args) throws Exception {
     EasyPredictModelWrapper model = new EasyPredictModelWrapper(MojoModel.load("../StackedEnsemble_AllModels_AutoML_20200805_020054.zip"));
 
-    List<ReorderDataModel> reorderDataModelList = Arrays.asList(reorderDataModel1);
+    List<ReorderDataModel> reorderDataModelList = Arrays
+      .asList(
+        reorderDataModel1, reorderDataModel10
+      );
 
 
     reorderDataModelList.forEach(reorderDataModel -> {
@@ -185,7 +219,6 @@ public class Main {
         System.out.print(p.classProbabilities[i]);
       }
       System.out.println("");
-
     });
   }
 }
