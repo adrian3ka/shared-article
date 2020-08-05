@@ -38,6 +38,27 @@ docker cp automl_binary_classification.ipynb $H2O_CONTAINER_ID:/root/h2o/h2o_ven
 docker cp product_backorders.csv $H2O_CONTAINER_ID:/root/h2o/h2o_venv/product_backorders.csv
 ```
 
+Open the jupyter notebook from the website based on the information from the terminal
+
+Build and pass the copy the package to docker:
+```
+cd model-predictor
+
+export H2O_CONTAINER_ID=$(docker ps -aqf "name=h2o")
+docker cp . $H2O_CONTAINER_ID:/root/h2o/h2o_venv/model-predictor
+```
+
+Inside the docker:
+```
+export H2O_CONTAINER_ID=$(docker ps -aqf "name=h2o")
+
+docker exec -it $H2O_CONTAINER_ID bash
+
+cd ~/h2o/h2o_venv/model-predictor
+mvn package
+mvn exec:java -Dexec.mainClass="com.example.Main"
+```
+
 Note to self:
 ```
 docker build -t "adrian3ka/h2o:0.0.1" .

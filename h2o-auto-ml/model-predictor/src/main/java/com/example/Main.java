@@ -169,13 +169,12 @@ public class Main {
     .build();
 
   public static void main(String[] args) throws Exception {
-    EasyPredictModelWrapper model = new EasyPredictModelWrapper(MojoModel.load("../StackedEnsemble_AllModels_AutoML_20200805_020054.zip"));
+    EasyPredictModelWrapper model = new EasyPredictModelWrapper(MojoModel.load("../top_model.zip"));
 
     List<ReorderDataModel> reorderDataModelList = Arrays
       .asList(
         reorderDataModel1, reorderDataModel10
       );
-
 
     reorderDataModelList.forEach(reorderDataModel -> {
       RowData row = new RowData();

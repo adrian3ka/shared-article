@@ -69,3 +69,4 @@ RUN mkdir ~/h2o
 RUN python3 -m pip install h2o
 RUN pip3 install pandas
 RUN pip3 install matplotlib
+RUN apt install -y maven
