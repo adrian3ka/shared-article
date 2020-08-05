@@ -23,6 +23,7 @@ virtualenv h2o_venv
 source h2o_venv/bin/activate
 
 # open new terminal
+export H2O_CONTAINER_ID=$(docker ps -aqf "name=h2o")
 docker inspect $H2O_CONTAINER_ID | grep "\"IPAddress\"" -m1
 
 # use ip from the output, my output are: 172.17.0.3
