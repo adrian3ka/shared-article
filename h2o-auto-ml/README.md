@@ -22,6 +22,7 @@ virtualenv h2o_venv
 
 source h2o_venv/bin/activate
 
+# open new terminal
 docker inspect $H2O_CONTAINER_ID | grep "\"IPAddress\"" -m1
 
 # use ip from the output, my output are: 172.17.0.3
@@ -34,6 +35,7 @@ Open a new terminal to copy the example to the located folder:
 export H2O_CONTAINER_ID=$(docker ps -aqf "name=h2o")
 
 docker cp automl_binary_classification.ipynb $H2O_CONTAINER_ID:/root/h2o/h2o_venv/automl_binary_classification.ipynb
+docker cp product_backorders.csv $H2O_CONTAINER_ID:/root/h2o/h2o_venv/product_backorders.csv
 ```
 
 Note to self:
