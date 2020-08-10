@@ -69,13 +69,19 @@ docker inspect $H2O_CONTAINER_ID | grep "\"IPAddress\"" -m1
 jupyter notebook --ip=172.17.0.3 --port=8888 --allow-root
 ```
 
-Open a new terminal to copy the example to the located folder:
+As for now you could see there will be link and token provided on the terminal, we could access it on the 
+web browser. Although we could run it on the web browser, but we didn't have any code to be run on the notebook.
+So before we move to the main part, training the model from jupyter notebook we need to open a new terminal 
+to copy the example to the located folder on the `/root/h2o/h2o_venv` inside the docker:
 ```
 export H2O_CONTAINER_ID=$(docker ps -aqf "name=h2o")
 
 docker cp automl_binary_classification.ipynb $H2O_CONTAINER_ID:/root/h2o/h2o_venv/automl_binary_classification.ipynb
 docker cp product_backorders.csv $H2O_CONTAINER_ID:/root/h2o/h2o_venv/product_backorders.csv
 ```
+
+From there you could see and run it 1 by 1. I would like to highlight some important part on the jupyter
+notebook.
 
 Open the jupyter notebook from the website based on the information from the terminal
 
@@ -97,14 +103,14 @@ cd ~/h2o/h2o_venv/model-predictor
 mvn package
 mvn exec:java -Dexec.mainClass="com.example.Main"
 ```
+Reference:
+- https://docs.h2o.ai/h2o/latest-stable/h2o-docs/automl.html accessed at 6th August 2020.
 
-Note to self:
+---
+##### Note to self:
 ```
 docker build -t "adrian3ka/h2o:0.0.1" .
 
 docker tag adrian3ka/h2o:0.0.1 adrian3ka/h2o:0.0.1
 docker push adrian3ka/h2o:0.0.1
 ```
-
-Reference:
-- https://docs.h2o.ai/h2o/latest-stable/h2o-docs/automl.html accessed at 6th August 2020.
