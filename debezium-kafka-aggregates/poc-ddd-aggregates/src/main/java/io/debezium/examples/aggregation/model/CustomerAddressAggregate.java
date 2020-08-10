@@ -11,7 +11,6 @@ import java.util.List;
 public class CustomerAddressAggregate {
   private static final Logger LOGGER = LoggerFactory.getLogger(CustomerAddressAggregate.class);
 
-
   private final Customer customer;
 
   private final List<Address> addresses;
@@ -21,9 +20,9 @@ public class CustomerAddressAggregate {
     @JsonProperty("customer") Customer customer,
     @JsonProperty("addresses") List<Address> addresses
   ) {
-    LOGGER.info("CustomerAddressAggregate is called");
-    LOGGER.info("customer >> " + customer);
-    LOGGER.info("addresses >> " + addresses);
+    System.out.println("CustomerAddressAggregate is called");
+    System.out.println("customer >> " + customer);
+    System.out.println("addresses >> " + addresses);
 
     this.customer = customer;
     this.addresses = addresses;

@@ -44,6 +44,7 @@ mvn clean package -f poc-ddd-aggregates/pom.xml
 
 ```
 export DEBEZIUM_VERSION=0.7
+docker-compose build --no-cache aggregator
 docker-compose up aggregator
 ```
 
@@ -91,6 +92,19 @@ INSERT INTO addresses VALUES (default, 1005, 'Street', 'City', 'State', '12312',
 ```
 
 The corresponding aggregate should be updated inMongoDB.
+
+To view the kafka sql:
+```
+export DEBEZIUM_VERSION=0.7
+docker-compose up ksql-server
+
+
+export DEBEZIUM_VERSION=0.7
+docker-compose exec ksql-cli ksql http://ksql-server:8088
+
+LIST TOPICS;
+SHOW TABLES;
+```
 
 Reference:
 - https://debezium.io/blog/2018/03/08/creating-ddd-aggregates-with-debezium-and-kafka-streams/ accessed on 10th August 2020

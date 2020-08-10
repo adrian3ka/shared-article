@@ -34,7 +34,6 @@ public class StreamingAggregatesDDD {
   private static final Logger LOGGER = LoggerFactory.getLogger(StreamingAggregatesDDD.class);
 
   public static void main(String[] args) {
-
     if (args.length != 3) {
       System.err.println("usage: java -jar <package> "
         + StreamingAggregatesDDD.class.getName() + " <parent_topic> <children_topic> <bootstrap_servers>");
@@ -63,9 +62,9 @@ public class StreamingAggregatesDDD {
 
     StreamsBuilder builder = new StreamsBuilder();
 
-    LOGGER.info("parentTopic >> " + parentTopic);
-    LOGGER.info("childrenTopic >> " + childrenTopic);
-    LOGGER.info("bootstrapServers >> " + bootstrapServers);
+    System.out.println("parentTopic >> " + parentTopic);
+    System.out.println("childrenTopic >> " + childrenTopic);
+    System.out.println("bootstrapServers >> " + bootstrapServers);
 
     //1) read parent topic i.e. customers as ktable
     KTable<DefaultId, Customer> customerTable =
@@ -81,9 +80,9 @@ public class StreamingAggregatesDDD {
       .aggregate(
         () -> new LatestAddress(),
         (DefaultId addressId, Address address, LatestAddress latest) -> {
-          LOGGER.info("address >> " + address);
-          LOGGER.info("addressId >> " + addressId);
-          LOGGER.info("defaultId >> " + new DefaultId(address.getCustomer_id()));
+          System.out.println("address >> " + address);
+          System.out.println("addressId >> " + addressId);
+          System.out.println("defaultId >> " + new DefaultId(address.getCustomer_id()));
 
           latest.update(address, addressId, new DefaultId(address.getCustomer_id()));
           return latest;
@@ -101,9 +100,9 @@ public class StreamingAggregatesDDD {
       .aggregate(
         () -> new Addresses(),
         (customerId, latestAddress, addresses) -> {
-          LOGGER.info("customerId >> " + customerId);
-          LOGGER.info("latestAddress >> " + latestAddress);
-          LOGGER.info("addresses >> " + addresses);
+          System.out.println("customerId >> " + customerId);
+          System.out.println("latestAddress >> " + latestAddress);
+          System.out.println("addresses >> " + addresses);
 
           addresses.update(latestAddress);
           return addresses;
