@@ -10,11 +10,15 @@ import org.apache.kafka.common.utils.Bytes;
 import org.apache.kafka.streams.*;
 import org.apache.kafka.streams.kstream.*;
 import org.apache.kafka.streams.state.KeyValueStore;
+import org.apache.kafka.streams.state.StoreBuilder;
+import org.apache.kafka.streams.state.Stores;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 
 public class StreamingAggregatesDDD {
-  private static final String AUTO_OFFSET_RESET_CONFIG = "latest";
+  private static final String AUTO_OFFSET_RESET_CONFIG = "earliest";
   private static final boolean ENABLE_AUTO_COMMIT_CONFIG = true;
 
   public static void main(String[] args) {
@@ -28,17 +32,16 @@ public class StreamingAggregatesDDD {
     final String childrenTopic = args[1];
     final String bootstrapServers = args[2];
 
+    final String TABLE_AGGREGATE = childrenTopic + "_table_aggregate";
+
     Properties props = new Properties();
     props.put(StreamsConfig.APPLICATION_ID_CONFIG, "streaming-aggregates-ddd5");
     props.put(ConsumerConfig.GROUP_ID_CONFIG, "group1");
     props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
     props.put(StreamsConfig.CACHE_MAX_BYTES_BUFFERING_CONFIG, 10 * 1024);
-    props.put(StreamsConfig.COMMIT_INTERVAL_MS_CONFIG, 1000);
-    props.put(TopicConfig.FLUSH_MESSAGES_INTERVAL_CONFIG, 1000);
+    props.put(StreamsConfig.COMMIT_INTERVAL_MS_CONFIG, "60");
+    props.put(TopicConfig.FLUSH_MESSAGES_INTERVAL_CONFIG, "60");
     props.put(CommonClientConfigs.METADATA_MAX_AGE_CONFIG, 500);
-    props.put(StreamsConfig.WINDOW_STORE_CHANGE_LOG_ADDITIONAL_RETENTION_MS_CONFIG, 60 * 1000); // 1 Minutes
-    props.put(TopicConfig.DELETE_RETENTION_MS_CONFIG, 60 * 1000); // 1 Minutes
-    props.put(TopicConfig.RETENTION_MS_CONFIG, 60 * 1000); // 1 Minutes
 
     // CHANGE AND TRY CONFIG
     System.out.println("AUTO_OFFSET_RESET_CONFIG >> " + AUTO_OFFSET_RESET_CONFIG);
@@ -68,6 +71,16 @@ public class StreamingAggregatesDDD {
     KStream<DefaultId, Address> addressStream = builder.stream(childrenTopic,
       Consumed.with(defaultIdSerde, addressSerde));
 
+    Map<String, String> stateStoreConfig = new HashMap<>();
+    stateStoreConfig.put(TopicConfig.SEGMENT_BYTES_CONFIG, "3000");
+    stateStoreConfig.put(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, "2");
+    stateStoreConfig.put(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE);
+    // IDK Why this treated as 60.000 ms in the real case
+    // When application is shutting down it will be scheduled to be deleted
+    stateStoreConfig.put(TopicConfig.RETENTION_MS_CONFIG, "1"); // 1 seconds
+
+    System.out.println(stateStoreConfig);
+
     //2a) pseudo-aggreate addresses to keep latest relationship info
     KTable<DefaultId, LatestAddress> tempTable = addressStream
       .groupByKey(Serialized.with(defaultIdSerde, addressSerde))
@@ -86,8 +99,9 @@ public class StreamingAggregatesDDD {
           as(childrenTopic + "_table_temporary")
           .withKeySerde(defaultIdSerde)
           .withValueSerde(latestAddressSerde)
-          // Prevent read from changelog
-          .withLoggingDisabled()
+          .withLoggingEnabled(stateStoreConfig)
+        // Prevent read from changelog
+        // .withLoggingDisabled()
       );
 
     //2b) aggregate addresses per customer id
@@ -106,11 +120,12 @@ public class StreamingAggregatesDDD {
           return addresses;
         },
         Materialized.<DefaultId, Addresses, KeyValueStore<Bytes, byte[]>>
-          as(childrenTopic + "_table_aggregate")
+          as(TABLE_AGGREGATE)
           .withKeySerde(defaultIdSerde)
           .withValueSerde(addressesSerde)
-          // Prevent read from changelog
-          .withLoggingDisabled()
+          .withLoggingEnabled(stateStoreConfig)
+        // Prevent read from changelog
+        // .withLoggingDisabled()
       );
 
     //3) KTable-KTable JOIN to combine customer and addresses
