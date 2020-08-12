@@ -28,6 +28,7 @@ services:
       KSQL_BOOTSTRAP_SERVERS: "kafka:9092"
       KSQL_HOST_NAME: ksql-server
       KSQL_APPLICATION_ID: "streaming-aggregates-ddd"
+      APPLICATION_ID: "streaming-aggregates-ddd"
       KSQL_LISTENERS: "http://0.0.0.0:8088"
       KSQL_CACHE_MAX_BYTES_BUFFERING: 0
   ksql-cli:

@@ -45,7 +45,7 @@ mvn clean package -f poc-ddd-aggregates/pom.xml
 ```
 export DEBEZIUM_VERSION=0.7
 docker-compose build --no-cache aggregator
-docker-compose up aggregator
+docker-compose up --build aggregator
 ```
 
 ```
@@ -93,17 +93,45 @@ INSERT INTO addresses VALUES (default, 1005, 'Street', 'City', 'State', '12312',
 
 The corresponding aggregate should be updated inMongoDB.
 
-To view the kafka sql:
+Let's explore to the kafka sql. First start MySql and setup the connector, and then follow the command below:
 ```
+# Start Kafka, Kafka Connect, a MySQL and a MongoDB database and the aggregator
+export DEBEZIUM_VERSION=0.7
+docker-compose down # shutdown previous app
+docker-compose up mysql zookeeper kafka connect_source
+
+# Start MySQL connector
+export DEBEZIUM_VERSION=0.7
+curl -i -X POST -H "Accept:application/json" -H  "Content-Type:application/json" http://localhost:8083/connectors/ -d @mysql-source-ksql.json
+
+
 export DEBEZIUM_VERSION=0.7
 docker-compose up ksql-server
 
-
 export DEBEZIUM_VERSION=0.7
+docker-compose up -d ksql-cli
 docker-compose exec ksql-cli ksql http://ksql-server:8088
 
 LIST TOPICS;
 SHOW TABLES;
+
+SET 'auto.offset.reset' = 'earliest';
+CREATE STREAM orders_from_debezium (order_number integer, order_date string, purchaser integer, quantity integer, product_id integer) WITH (KAFKA_TOPIC='dbserver.inventory.orders',VALUE_FORMAT='json');
+CREATE STREAM customers_from_debezium (id integer, first_name string, last_name string, email string) WITH (KAFKA_TOPIC='dbserver.inventory.customers',VALUE_FORMAT='json');
+
+CREATE STREAM orders WITH (KAFKA_TOPIC='ORDERS_REPART',VALUE_FORMAT='json',PARTITIONS=1) as SELECT * FROM orders_from_debezium PARTITION BY PURCHASER;
+CREATE STREAM customers_stream WITH (KAFKA_TOPIC='CUSTOMERS_REPART',VALUE_FORMAT='json',PARTITIONS=1) as SELECT * FROM customers_from_debezium PARTITION BY ID;
+
+SELECT * FROM orders_from_debezium LIMIT 1;
+
+CREATE TABLE customers (id integer, first_name string, last_name string, email string) WITH (KAFKA_TOPIC='CUSTOMERS_REPART',VALUE_FORMAT='json',KEY='id');
+
+export DEBEZIUM_VERSION=0.7
+docker-compose exec mysql bash -c 'mysql -u $MYSQL_USER -p$MYSQL_PASSWORD inventory'
+
+INSERT INTO orders VALUES(default,NOW(), 1003,5,101);
+UPDATE customers SET first_name='Annie' WHERE id=1004;
+UPDATE orders SET quantity=20 WHERE order_number=10004;
 ```
 
 Reference:

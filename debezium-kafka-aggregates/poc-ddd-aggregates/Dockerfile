@@ -24,6 +24,10 @@ COPY pom.xml /tmp/poc-ddd-aggregates/
 RUN mvn dependency:go-offline -f /tmp/poc-ddd-aggregates/pom.xml
 
 RUN mvn dependency:copy-dependencies -f /tmp/poc-ddd-aggregates/pom.xml -DoutputDirectory=target/dependencies -DincludeScope=compile
+
+# Change the echo to miss the cache below
+RUN echo "20"
+
 COPY src /tmp/poc-ddd-aggregates/src
 RUN mvn package -DskipTests -o -f /tmp/poc-ddd-aggregates/pom.xml
 

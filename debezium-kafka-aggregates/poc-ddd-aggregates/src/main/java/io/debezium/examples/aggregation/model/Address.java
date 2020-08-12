@@ -3,7 +3,6 @@ package io.debezium.examples.aggregation.model;
 import com.fasterxml.jackson.annotation.*;
 
 public class Address {
-
   private final EventType _eventType;
 
   private final Integer id;

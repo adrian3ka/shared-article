@@ -1,37 +1,21 @@
 package io.debezium.examples.aggregation;
 
-import java.util.Properties;
-
+import io.debezium.examples.aggregation.model.*;
+import io.debezium.examples.aggregation.serdes.SerdeFactory;
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.common.config.TopicConfig;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.utils.Bytes;
-import org.apache.kafka.streams.Consumed;
-import org.apache.kafka.streams.KafkaStreams;
-import org.apache.kafka.streams.KeyValue;
-import org.apache.kafka.streams.StreamsBuilder;
-import org.apache.kafka.streams.StreamsConfig;
-import org.apache.kafka.streams.kstream.KStream;
-import org.apache.kafka.streams.kstream.KTable;
-import org.apache.kafka.streams.kstream.Materialized;
-import org.apache.kafka.streams.kstream.Printed;
-import org.apache.kafka.streams.kstream.Produced;
-import org.apache.kafka.streams.kstream.Serialized;
+import org.apache.kafka.streams.*;
+import org.apache.kafka.streams.kstream.*;
 import org.apache.kafka.streams.state.KeyValueStore;
 
-import io.debezium.examples.aggregation.model.Address;
-import io.debezium.examples.aggregation.model.Addresses;
-import io.debezium.examples.aggregation.model.Customer;
-import io.debezium.examples.aggregation.model.CustomerAddressAggregate;
-import io.debezium.examples.aggregation.model.DefaultId;
-import io.debezium.examples.aggregation.model.EventType;
-import io.debezium.examples.aggregation.model.LatestAddress;
-import io.debezium.examples.aggregation.serdes.SerdeFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.Properties;
 
 public class StreamingAggregatesDDD {
-  private static final Logger LOGGER = LoggerFactory.getLogger(StreamingAggregatesDDD.class);
+  private static final String AUTO_OFFSET_RESET_CONFIG = "latest";
+  private static final boolean ENABLE_AUTO_COMMIT_CONFIG = true;
 
   public static void main(String[] args) {
     if (args.length != 3) {
@@ -45,12 +29,22 @@ public class StreamingAggregatesDDD {
     final String bootstrapServers = args[2];
 
     Properties props = new Properties();
-    props.put(StreamsConfig.APPLICATION_ID_CONFIG, "streaming-aggregates-ddd");
+    props.put(StreamsConfig.APPLICATION_ID_CONFIG, "streaming-aggregates-ddd5");
+    props.put(ConsumerConfig.GROUP_ID_CONFIG, "group1");
     props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
     props.put(StreamsConfig.CACHE_MAX_BYTES_BUFFERING_CONFIG, 10 * 1024);
     props.put(StreamsConfig.COMMIT_INTERVAL_MS_CONFIG, 1000);
+    props.put(TopicConfig.FLUSH_MESSAGES_INTERVAL_CONFIG, 1000);
     props.put(CommonClientConfigs.METADATA_MAX_AGE_CONFIG, 500);
-    props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+    props.put(StreamsConfig.WINDOW_STORE_CHANGE_LOG_ADDITIONAL_RETENTION_MS_CONFIG, 60 * 1000); // 1 Minutes
+    props.put(TopicConfig.DELETE_RETENTION_MS_CONFIG, 60 * 1000); // 1 Minutes
+    props.put(TopicConfig.RETENTION_MS_CONFIG, 60 * 1000); // 1 Minutes
+
+    // CHANGE AND TRY CONFIG
+    System.out.println("AUTO_OFFSET_RESET_CONFIG >> " + AUTO_OFFSET_RESET_CONFIG);
+    System.out.println("ENABLE_AUTO_COMMIT_CONFIG >> " + ENABLE_AUTO_COMMIT_CONFIG);
+    props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, AUTO_OFFSET_RESET_CONFIG);
+    props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, ENABLE_AUTO_COMMIT_CONFIG);
 
     final Serde<DefaultId> defaultIdSerde = SerdeFactory.createDbzEventJsonPojoSerdeFor(DefaultId.class, true);
     final Serde<Customer> customerSerde = SerdeFactory.createDbzEventJsonPojoSerdeFor(Customer.class, false);
@@ -78,19 +72,22 @@ public class StreamingAggregatesDDD {
     KTable<DefaultId, LatestAddress> tempTable = addressStream
       .groupByKey(Serialized.with(defaultIdSerde, addressSerde))
       .aggregate(
-        () -> new LatestAddress(),
+        LatestAddress::new,
         (DefaultId addressId, Address address, LatestAddress latest) -> {
           System.out.println("address >> " + address);
           System.out.println("addressId >> " + addressId);
           System.out.println("defaultId >> " + new DefaultId(address.getCustomer_id()));
+          System.out.println("------------------------------------------------------------------------");
 
           latest.update(address, addressId, new DefaultId(address.getCustomer_id()));
           return latest;
         },
         Materialized.<DefaultId, LatestAddress, KeyValueStore<Bytes, byte[]>>
-          as(childrenTopic + "_table_temp")
+          as(childrenTopic + "_table_temporary")
           .withKeySerde(defaultIdSerde)
           .withValueSerde(latestAddressSerde)
+          // Prevent read from changelog
+          .withLoggingDisabled()
       );
 
     //2b) aggregate addresses per customer id
@@ -98,11 +95,12 @@ public class StreamingAggregatesDDD {
       .map((addressId, latestAddress) -> new KeyValue<>(latestAddress.getCustomerId(), latestAddress))
       .groupByKey(Serialized.with(defaultIdSerde, latestAddressSerde))
       .aggregate(
-        () -> new Addresses(),
+        Addresses::new,
         (customerId, latestAddress, addresses) -> {
           System.out.println("customerId >> " + customerId);
           System.out.println("latestAddress >> " + latestAddress);
           System.out.println("addresses >> " + addresses);
+          System.out.println("------------------------------------------------------------------------");
 
           addresses.update(latestAddress);
           return addresses;
@@ -111,14 +109,18 @@ public class StreamingAggregatesDDD {
           as(childrenTopic + "_table_aggregate")
           .withKeySerde(defaultIdSerde)
           .withValueSerde(addressesSerde)
+          // Prevent read from changelog
+          .withLoggingDisabled()
       );
 
     //3) KTable-KTable JOIN to combine customer and addresses
     KTable<DefaultId, CustomerAddressAggregate> dddAggregate =
-      customerTable.join(addressTable, (customer, addresses) ->
-        customer.get_eventType() == EventType.DELETE ?
-          null : new CustomerAddressAggregate(customer, addresses.getEntries())
-      );
+      customerTable.join(addressTable, (customer, addresses) -> {
+        System.out.println("customer.get_eventType() >> " + customer.get_eventType());
+
+        return customer.get_eventType() == EventType.DELETE ?
+          null : new CustomerAddressAggregate(customer, addresses.getEntries());
+      });
 
     dddAggregate.toStream().to("final_ddd_aggregates",
       Produced.with(defaultIdSerde, (Serde) aggregateSerde));
@@ -126,6 +128,7 @@ public class StreamingAggregatesDDD {
     dddAggregate.toStream().print(Printed.toSysOut());
 
     final KafkaStreams streams = new KafkaStreams(builder.build(), props);
+    streams.cleanUp();
     streams.start();
 
     Runtime.getRuntime().addShutdownHook(new Thread(streams::close));
