@@ -1,8 +1,14 @@
-# Debezium KStreams Example
+# Debezium and KStreams to Handle Data Aggregation
 
-Microservice-based architectures can be considered an industry trend and are thus often found in enterprise applications
-lately. One possible way to keep data synchronized across multiple services, and their backing data stores is to make 
-use of an approach called change data capture, or CDC for short.
+In now days microservice-based architectures is one of the most popular in industry, and they are often found in 
+enterprise scale applications lately. The main goal of microservices is to keep the application small (micro) and have
+its own knowledge to serve the specified domain to be maintainable and have a readable code. So microservice-based
+architecture known as <b>Domain Driven Design</b> to keep the application to handle its domain. The applications will 
+separated into small pieces along with its data it would be placed into different database to keep it small and neat. 
+To achieve the main goal there will be 1 of the biggest things to be sacrifice that is the data management. The data
+will be scattered away, and it's kinda hard to reassemble the data for analytical purpose and any activity related to
+OLAP data. One possible way to keep data synchronized across multiple services, and stored properly with the expected
+structure for OLAP is to make use of an approach called change data capture, or CDC for short.
 
 Essentially <b>CDC</b> allows listening to any modifications which are occurring at one end of a data flow 
 (i.e. the data source) and communicate them as change events to other interested parties or storing them into a data 
@@ -12,25 +18,27 @@ to join two CDC event streams created by Debezium into a single topic and sink t
 MongoDB, using the Kafka Connect MongoDB sink connector (https://github.com/hpgrahsl/kafka-connect-mongodb).
 
 ---
-These example consist of a microservice that handling customer data including addresses and orders.
-We only interested to capture any data change if the customer have address information changes. So we would only like to
-store the data to MongoDB if there's a data change on users and addresses to related users. 
+These example consist of a microservice that handling customer data including addresses and orders. To keep the example
+simple and straight forward we like to use one microservice with single database, but you can do it with a microservice 
+with many databases at once or multiple microservices. For now, we only interested to capture any data change if the 
+customer have address information changes. So we would only like to store the data to MongoDB if there's a data change 
+on users and addresses to related users. 
 
 Before we start there will be some component to be explained:
 - <b>Kafka</b> acts as a message broker. A broker is an intermediary brings together two parties or services
   that don’t necessarily know each other for a mutually beneficial exchange to enriching the data.
-- <b>Kafka Connect</b>, an open source component of Apache Kafka, is a framework for connecting Kafka with external systems 
-  such as databases, key-value stores, search indexes, and file systems.
+- <b>Kafka Connect</b>, an open source component of Apache Kafka, is a framework for connecting Kafka with external 
+  systems such as databases, key-value stores, search indexes, and file systems.
 - <b>ZooKeeper</b> is a centralized service for maintaining configuration information, naming, providing distributed 
-  synchronization, and providing group services. All of these kinds of services are used in some form or another by 
-  distributed applications. Each time they are implemented there is a lot of work goes into fixing the bugs and race 
+  synchronization, and providing group services. All of these kinds of services used to handle distributed applications. 
+  Each time they are implemented there is a lot of work goes into fixing the bugs and race 
   conditions that are inevitable. Because of the difficulty of implementing these kinds of services, applications 
   initially usually skimp on them, which make them brittle in the presence of change and difficult to manage. 
-  Even when done correctly, different implementations of these services lead to management complexity when the 
-  applications are deployed.
-- <b>Debezium</b> is a set of source connectors for Apache Kafka Connect, ingesting changes from different databases using 
-  change data capture (CDC). Unlike other approaches such as polling or dual writes, log-based CDC as implemented by 
-  Debezium:
+  Even when done correctly, when applications deployed it could handle different implementations of these services 
+  lead to management complexity.
+- <b>Debezium</b> is a set of source connectors for Apache Kafka Connect, ingesting changes from different databases 
+  using change data capture (CDC). Unlike other approaches such as polling or dual writes, log-based CDC as implemented 
+  by Debezium:
   - makes sure <b>all data changes captured</b>.
   - produces change events with a <b>very low delay</b> (e.g. ms range for MySQL or Postgres) while avoiding increased 
     CPU usage of frequent polling.
@@ -45,7 +53,8 @@ Before we start there will be some component to be explained:
 We will use docker to run through the PoC for debezium data aggregation and resource management on production 
 environment. First of all we will try to start the required stack to be started using `docker-compose`. Docker compose 
 is a tool provides a way to orchestrate multiple containers that work together. So we could manage the docker resource
-such as docker network to make available for each resource to communicate each other.
+such as docker network to make available for each resource to communicate each other without any prior knowledge about
+them.
 
 ```shell script
 # Start Kafka, Kafka Connect, a MySQL and Zookeeper
@@ -75,6 +84,7 @@ JSON document:
     }
 }
 ```
+
 This sets up the connector for the specified database, using the given credentials. For our purposes we’re only 
 interested in changes to the customers and addresses tables, hence the `table.whitelist` property given to just select 
 these two tables. Another noteworthy thing is the "unwrap" transform that is applied. By default, Debezium’s CDC events 
@@ -87,7 +97,8 @@ corresponding Kafka topics.
 curl -i -X POST -H "Accept:application/json" -H  "Content-Type:application/json" http://localhost:8083/connectors/ -d @mysql-source.json
 ```
 
-# Monitor the ingested message
+## Monitor the ingested message
+
 We can take a look at them once the connector has been deployed and finished its initial snapshot of the two captured 
 tables by using the `kafka-console-consumer` tools that already provided by originally from Kafka. We would like to
 watch to topic at the same time because we wanted to listen to two tables at the same times. As the docker application
@@ -396,57 +407,6 @@ We also thought about providing a ready-to-use component which would work in gen
 i.e. not tied to a specific serialization format such as JSON) and could be set up as a configurable stand-alone process 
 running given aggregations.
 
-Also, on the topic of dealing with eventual consistency we got some ideas, but those will need some more exploration and 
-investigation for sure. Stay tuned!
-
-We’d love to hear about your feedback on the topic of event aggregation. If you got any ideas or thoughts on the 
-subject, please get in touch by posting a comment below or sending a message to our mailing list.
-
-Kafka Sql
--
-After we get our hand dirty with Kafka Stream, let's explore to the kafka sql. 
-
-First start MySql and setup the connector, and then follow the command below:
-```shell script
-# Start Kafka, Kafka Connect, a MySQL and a MongoDB database and the aggregator
-docker-compose down # shutdown previous app
-docker-compose up mysql zookeeper kafka connect_source
-
-# Start MySQL connector
-curl -i -X POST -H "Accept:application/json" -H  "Content-Type:application/json" http://localhost:8083/connectors/ -d @mysql-source-ksql.json
-
-docker-compose up ksql-server
-
-docker-compose up -d ksql-cli
-docker-compose exec ksql-cli ksql http://ksql-server:8088
-```
-
-```text
-LIST TOPICS;
-SHOW TABLES;
-
-SET 'auto.offset.reset' = 'earliest';
-CREATE STREAM orders_from_debezium (order_number integer, order_date string, purchaser integer, quantity integer, product_id integer) WITH (KAFKA_TOPIC='dbserver.inventory.orders',VALUE_FORMAT='json');
-CREATE STREAM customers_from_debezium (id integer, first_name string, last_name string, email string) WITH (KAFKA_TOPIC='dbserver.inventory.customers',VALUE_FORMAT='json');
-
-CREATE STREAM orders WITH (KAFKA_TOPIC='ORDERS_REPART',VALUE_FORMAT='json',PARTITIONS=1) as SELECT * FROM orders_from_debezium PARTITION BY PURCHASER;
-CREATE STREAM customers_stream WITH (KAFKA_TOPIC='CUSTOMERS_REPART',VALUE_FORMAT='json',PARTITIONS=1) as SELECT * FROM customers_from_debezium PARTITION BY ID;
-
-SELECT * FROM orders_from_debezium LIMIT 1;
-
-CREATE TABLE customers (id integer, first_name string, last_name string, email string) WITH (KAFKA_TOPIC='CUSTOMERS_REPART',VALUE_FORMAT='json',KEY='id');
-```
-
-```shell script
-docker-compose exec mysql bash -c 'mysql -u $MYSQL_USER -p$MYSQL_PASSWORD inventory'
-```
-
-```text
-INSERT INTO orders VALUES(default, NOW(), 1003,5,101);
-UPDATE customers SET first_name='Annie' WHERE id=1004;
-UPDATE orders SET quantity=20 WHERE order_number=10004;
-```
-
 Reference:
 - https://debezium.io/blog/2018/03/08/creating-ddd-aggregates-with-debezium-and-kafka-streams/ 
   accessed on 10th August 2020.
@@ -454,5 +414,3 @@ Reference:
 - https://debezium.io/documentation/reference/1.2/features.html accessed on 13th August 2020.
 - https://www.mysql.com/about/ accessed on 13th August 2020.
 - https://kafka.apache.org/documentation/streams/ accessed on 13th August 2020.
-- https://debezium.io/blog/2018/05/24/querying-debezium-change-data-eEvents-with-ksql/ 
-  accessed on 15th August 2020.
