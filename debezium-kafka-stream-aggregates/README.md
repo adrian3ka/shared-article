@@ -3,12 +3,12 @@
 In now days microservice-based architectures is one of the most popular in industry, and they are often found in 
 enterprise scale applications lately. The main goal of microservices is to keep the application small (micro) and have
 its own knowledge to serve the specified domain to be maintainable and have a readable code. So microservice-based
-architecture known as <b>Domain Driven Design</b> to keep the application to handle its domain. The applications will 
+architecture known as <b>Domain Driven Design (DDD)</b> to keep application to handle its domain. The applications will 
 separated into small pieces along with its data it would be placed into different database to keep it small and neat. 
 To achieve the main goal there will be 1 of the biggest things to be sacrifice that is the data management. The data
 will be scattered away, and it's kinda hard to reassemble the data for analytical purpose and any activity related to
 OLAP data. One possible way to keep data synchronized across multiple services, and stored properly with the expected
-structure for OLAP is to make use of an approach called change data capture, or CDC for short.
+structure for OLAP is to make use of an approach called change data capture, or <b>CDC</b> for short.
 
 Essentially <b>CDC</b> allows listening to any modifications which are occurring at one end of a data flow 
 (i.e. the data source) and communicate them as change events to other interested parties or storing them into a data 
@@ -85,11 +85,12 @@ JSON document:
 }
 ```
 
-This sets up the connector for the specified database, using the given credentials. For our purposes we’re only 
-interested in changes to the customers and addresses tables, hence the `table.whitelist` property given to just select 
-these two tables. Another noteworthy thing is the "unwrap" transform that is applied. By default, Debezium’s CDC events 
-would contain the old and new state of changed rows and some additional metadata on the source of the change. 
-By applying the UnwrapFromEnvelope SMT (single message transformation), only the new state will be propagated into the 
+The config above is trying describe how we set up the connector for the specified database, using the given credentials. 
+For our purposes we’re only interested in changes to the customers and addresses tables, hence the `table.whitelist` 
+property given to just select these two tables. Another noteworthy thing is the `unwrap` transform that is applied. 
+By default, Debezium’s CDC events would contain the old and new state of changed rows and some additional metadata on 
+the source of the change. By applying the `io.debezium.transforms.UnwrapFromEnvelope` 
+SMT (single message transformation) on `transforms.unwrap.type` key, only the new state will be propagated into the 
 corresponding Kafka topics.
 
 ```shell script
@@ -141,9 +142,38 @@ topic with customer changes:
 ...
 ```
 You should see the similar message including schema with the key and payload from the other terminal contains
-CDC from address table.
+CDC from address table for the other data. Before moving forward to the Kafka Stream application now take a look where's
+the data came from. Open a new terminal to going inside the MySQL docker.
 
-# Building DDD Aggregates
+```shell script
+docker-compose exec mysql bash -c 'mysql -u $MYSQL_USER -p$MYSQL_PASSWORD inventory'
+```
+
+Inside the docker now you can take a look for the data already being prepared for this example. The connector will try
+to ingest all the data from the beginning of the time. So it's up to us whether we wanted to pick and aggregate
+the data from the beginning or the latest one. For this example we would try to aggregate all the data from the
+beginning of the time. This could be done by add some config parameter on the code:
+
+```
+  private static final String AUTO_OFFSET_RESET_CONFIG = "earliest";
+
+  ...
+
+  Properties props = new Properties();
+  
+  ...
+
+  props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, AUTO_OFFSET_RESET_CONFIG);
+```
+
+The other possible value is `latest` so the Kafka Stream application will not try to process the data from the beginning
+of the time it would only try to process the latest one. This config only could apply once, because once the offset
+already being marked you couldn't change it to the earliest (if you change your mind to aggregate the data from the
+beginning of the time), the possibility are trying to reset it and reprocess it with `earliest` parameter. 
+The application will respect `AUTO_OFFSET_RESET_CONFIG` parameter if the offset is not being setup on the system. Once
+it already setup it would only read based on the offset. We will try to catch up about offset later on.
+
+# Building Kafka Stream Aggregator
 
 We would like to use Kafka Stream API to process and aggregate the data changes. Kafka Streams is a client library for 
 building applications and microservices, where the input and output data stored in Kafka clusters. It combines the 
@@ -164,8 +194,7 @@ All the customer records came from the customer topic into a KTable which will a
 per customer according to the record key (i.e. the customer’s PK)
 
 ```text
-  KTable<DefaultId, Customer> customerTable =
-          builder.table(parentTopic, Consumed.with(defaultIdSerde,customerSerde));
+KTable<DefaultId, Customer> customerTable = builder.table(parentTopic, Consumed.with(defaultIdSerde,customerSerde));
 ```
 
 #### Addresses Topic ("children")
@@ -173,8 +202,7 @@ For the address records the processing is a bit more involved and needs several 
 streamed into a KStream.
 
 ```
-KStream<DefaultId, Address> addressStream = builder.stream(childrenTopic,
-        Consumed.with(defaultIdSerde, addressSerde));
+KStream<DefaultId, Address> addressStream = builder.stream(childrenTopic, Consumed.with(defaultIdSerde, addressSerde));
 ```
 
 Second, a `pseudo` grouping of these address records done based on their keys (the original primary key in the relation). 
@@ -185,43 +213,43 @@ addition to the Address record itself.
 
 ```text
 KTable<DefaultId,LatestAddress> tempTable = addressStream
-        .groupByKey(Serialized.with(defaultIdSerde, addressSerde))
-        .aggregate(
-                () -> new LatestAddress(),
-                (DefaultId addressId, Address address, LatestAddress latest) -> {
-                    latest.update(
-                        address, addressId, new DefaultId(address.getCustomer_id()));
-                    return latest;
-                },
-                Materialized.<DefaultId,LatestAddress,KeyValueStore<Bytes, byte[]>>
-                        as(childrenTopic+"_table_temp")
-                            .withKeySerde(defaultIdSerde)
-                                .withValueSerde(latestAddressSerde)
-        );
+  .groupByKey(Serialized.with(defaultIdSerde, addressSerde))
+  .aggregate(
+    () -> new LatestAddress(),
+    (DefaultId addressId, Address address, LatestAddress latest) -> {
+      latest.update(
+        address, addressId, new DefaultId(address.getCustomer_id()));
+      return latest;
+    },
+    Materialized.<DefaultId,LatestAddress,KeyValueStore<Bytes, byte[]>>
+      as(childrenTopic+"_table_temp")
+        .withKeySerde(defaultIdSerde)
+        .withValueSerde(latestAddressSerde)
+  );
 ```
 
 Third, the intermediate KTable is again converted to a KStream. The LatestAddress records transformed to have the 
 customer id (FK relationship) as their new key in order to group them per customer. During the grouping step, customer 
-specific addresses are updated which can result in an address record being added or deleted. For this purpose, another 
-POJO called Addresses is introduced, which holds a map of address records that gets updated accordingly. 
+specific addresses updated which can result in an address record being added or deleted. For this purpose, another 
+POJO called Addresses introduced, which holds a map of address records that gets updated accordingly. 
 The result is a KTable holding the most recent Addresses per customer id.
 
 ```
 KTable<DefaultId, Addresses> addressTable = tempTable.toStream()
-        .map((addressId, latestAddress) ->
-            new KeyValue<>(latestAddress.getCustomerId(),latestAddress))
-        .groupByKey(Serialized.with(defaultIdSerde,latestAddressSerde))
-        .aggregate(
-                () -> new Addresses(),
-                (customerId, latestAddress, addresses) -> {
-                    addresses.update(latestAddress);
-                    return addresses;
-                },
-                Materialized.<DefaultId,Addresses,KeyValueStore<Bytes, byte[]>>
-                        as(childrenTopic+"_table_aggregate")
-                            .withKeySerde(defaultIdSerde)
-                                .withValueSerde(addressesSerde)
-        );
+  .map((addressId, latestAddress) -> 
+    new KeyValue<>(latestAddress.getCustomerId(),latestAddress))
+  .groupByKey(Serialized.with(defaultIdSerde,latestAddressSerde))
+  .aggregate(
+    () -> new Addresses(),
+    (customerId, latestAddress, addresses) -> {
+      addresses.update(latestAddress);
+      return addresses;
+    },
+    Materialized.<DefaultId,Addresses,KeyValueStore<Bytes, byte[]>>
+      as(childrenTopic+"_table_aggregate")
+        .withKeySerde(defaultIdSerde)
+        .withValueSerde(addressesSerde)
+  );
 ```
 
 #### Combining Customers With Addresses
@@ -244,6 +272,18 @@ This allows making use of the resulting DDD aggregates in manifold ways.
 Records in the customers KTable might receive a CDC the `delete` event. If so, this can be detected by checking the 
 event type field of the customer POJO and e.g. return 'null' instead of a DDD aggregate. 
 Such a convention can be helpful whenever consuming parties also need to act to deletions accordingly.
+
+The important part you should know is offset in Kafka. Kafka remembers your application by storing consumer offsets in a
+special topic. Offsets are numbers assigned to messages by the Kafka broker(s) indicating the order in which they 
+arrived at the broker(s). By remembering your application’s last committed offset, your application is only going to 
+process newly arrived messages. The configuration setting `offsets.retention.minutes` controls how long Kafka will 
+remember offsets in the special topic. The default value is 10,080 minutes (7 days).
+
+If your application stopped (hasn’t connected to the Kafka cluster) for a while, you could end up in a situation where 
+you start reprocessing data on application restart because the broker(s) have deleted the offsets in the meantime. 
+The actual startup behavior depends on your `auto.offset.reset` configuration that can be set to 
+`earliest`, `latest`, or `none`. To avoid this problem, it is recommended to increase `offsets.retention.minutes` to 
+an appropriately large value.
 
 After we have some overview to the code let's try to run compile and package the program. For this example I will pick
 maven as the package manager to using pom file. So to package the application we could run this command below:
@@ -281,9 +321,15 @@ docker-compose exec kafka /kafka/bin/kafka-console-consumer.sh \
 
 Transferring DDD Aggregates to Data Sinks
 ---
-We originally set out to build these DDD aggregates in order to transfer data and synchronize changes between a data source (MySQL tables in this case) and a convenient data sink. By definition, DDD aggregates are typically complex data structures and therefore it makes perfect sense to write them to data stores which offer flexible ways and means to query and/or index them. Talking about NoSQL databases, a document store seems the most natural choice with MongoDB being the leading database for such use cases.
+We originally set out to build these DDD aggregates in order to transfer data and synchronize changes between a data 
+source (MySQL tables in this case), and a convenient data sink. By definition, DDD aggregates are typically complex data
+structures and therefore it makes perfect sense to write them to data stores which offer flexible ways and means to 
+query and/or index them. Talking about NoSQL databases, a document store seems the most natural choice with MongoDB 
+being the leading database for such use cases.
 
-Thanks to Kafka Connect and numerous turn-key ready connectors it is almost effortless to get this done. Using a MongoDB sink connector from the open-source community, it is easy to have the DDD aggregates written into MongoDB. All it needs is a proper configuration which can be posted to the REST API of Kafka Connect in order to run the connector.
+Thanks to Kafka Connect and numerous turn-key ready connectors it is almost effortless to get this done. Using a MongoDB 
+sink connector from the open-source community, it is easy to have the DDD aggregates written into MongoDB. All it needs 
+is a proper configuration which can be posted to the REST API of Kafka Connect in order to run the connector.
 
 So let’s start MongoDb and another Kafka Connect instance for hosting the sink connector:
 ```shell script
@@ -382,6 +428,44 @@ INSERT INTO addresses VALUES (default, 1005, 'Street', 'City', 'State', '12312',
 
 Shortly thereafter, you should see that the corresponding aggregate document in MongoDB has been updated accordingly.
 
+To enrich your knowledge about the config parameter and handling operational issue let's try some other thing. Try to
+take down all of your application before we begin to explore some other config. To shut down all the docker container
+you could use `docker-compose down` from the main directory. After waiting for some times and its successfully 
+shut down, now on the main class `StreamingAggregatesDDD` we would like to try to change some line of code. We will try
+to change the line:
+```
+private static final String AUTO_OFFSET_RESET_CONFIG = "earliest";
+```
+to become:
+```
+private static final String AUTO_OFFSET_RESET_CONFIG = "latest";
+```
+That value above will attach to the parameter config named `auto.offset.reset`. 
+
+## Auto Offset Reset
+
+After you change it please follow through the command above until you reach this following steps. Please make sure
+while you build the application the docker miss the cache while packing the application, or you can do it manually
+to make sure it will miss the cache. Inside the `poc-ddd-aggregate` folder you could find a file named `Dockerfile`
+actually its one of the file contains set of instructions how to build the aggregator application. After that open the
+file using your favorite text editor and find the line `RUN echo "20"`, and please change it to echo another one, maybe
+it's a great idea to change it to a greater sequence number like `21` so it would become `RUN echo "21"`.
+```shell script
+docker-compose up --build aggregator
+```
+After that try to watch the published message to `final_ddd_aggregates` topic using the very next command to view the 
+message came in by using console consumer, or you can see on the terminal runs your `aggregator` application. You will 
+not see any incoming message you see previously that you could see that the Kafka Stream application will try to
+ingest the data from the beginning. Because the `latest` option would be read the data that have ingested time greater
+than current time when application started and would ignore any earlier data than that. Also, it related to
+`offsets.retention.minutes` config, that how long Kafka Stream application will remember the current latest committed
+offset (please see the explanation above if you just jump into this part). If we already passed the specified the Kafka 
+Stream application will respect to the value on `auto.offset.reset` config. Kafka stream will always renew the time 
+while committed the offset each time a data is already processed.
+
+### Changelog retention and file rotation
+
+
 ### Drawbacks and Limitations
 
 While this first version for creating DDD aggregates from table-based CDC events basically works, it is very important 
@@ -414,3 +498,5 @@ Reference:
 - https://debezium.io/documentation/reference/1.2/features.html accessed on 13th August 2020.
 - https://www.mysql.com/about/ accessed on 13th August 2020.
 - https://kafka.apache.org/documentation/streams/ accessed on 13th August 2020.
+- https://docs.confluent.io/current/streams/faq.html#accessing-record-metadata-such-as-topic-partition-and-offset-information
+  accessed on 15th August 2020.
