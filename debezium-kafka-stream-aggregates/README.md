@@ -426,7 +426,10 @@ UPDATE customers SET first_name = 'Adrian Eka' WHERE id = 1005;
 INSERT INTO addresses VALUES (default, 1005, 'Street', 'City', 'State', '12312', 'LIVING');
 ```
 
-Shortly thereafter, you should see that the corresponding aggregate document in MongoDB has been updated accordingly.
+After execute all MySQL above, you should see that the corresponding aggregate document in MongoDB has been updated 
+accordingly.
+
+## Auto Offset Reset
 
 To enrich your knowledge about the config parameter and handling operational issue let's try some other thing. Try to
 take down all of your application before we begin to explore some other config. To shut down all the docker container
@@ -441,8 +444,6 @@ to become:
 private static final String AUTO_OFFSET_RESET_CONFIG = "latest";
 ```
 That value above will attach to the parameter config named `auto.offset.reset`. 
-
-## Auto Offset Reset
 
 After you change it please follow through the command above until you reach this following steps. Please make sure
 while you build the application the docker miss the cache while packing the application, or you can do it manually
@@ -461,10 +462,28 @@ than current time when application started and would ignore any earlier data tha
 `offsets.retention.minutes` config, that how long Kafka Stream application will remember the current latest committed
 offset (please see the explanation above if you just jump into this part). If we already passed the specified the Kafka 
 Stream application will respect to the value on `auto.offset.reset` config. Kafka stream will always renew the time 
-while committed the offset each time a data is already processed.
+while committed the offset each time a data processed.
 
 ### Changelog retention and file rotation
+In information technology, file rotation is an automated process used in system administration in which files 
+are compressed, moved (archived), renamed or deleted once they are too old or too big (there can be other metrics that 
+can apply here). New incoming file is directed into a new fresh file (at the same location) with some added index or
+something like counter.
 
+The main purpose of file rotation is to restrict the volume of the file size and to avoid overflowing the record store 
+and keeping the files small enough on the system for the efficiency purpose.
+
+In Kafka Stream application it implements the file rotation, for now we would take a look at the change log rotation
+on the aggregator application while saving the aggregated record to the changelog file. First we need to take down all 
+the running applications by running command `docker-compose down`. First of all let's see the snippet code:
+```
+Map<String, String> stateStoreConfig = new HashMap<>();
+stateStoreConfig.put(TopicConfig.SEGMENT_BYTES_CONFIG, "3000");
+stateStoreConfig.put(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE);  
+// IDK Why this treated as 60.000 ms in the real case
+// When the file is not elected as the main file, it will be scheduled to be deleted after 1 minutes
+stateStoreConfig.put(TopicConfig.RETENTION_MS_CONFIG, "1"); // 1 minutes
+```
 
 ### Drawbacks and Limitations
 
@@ -500,3 +519,4 @@ Reference:
 - https://kafka.apache.org/documentation/streams/ accessed on 13th August 2020.
 - https://docs.confluent.io/current/streams/faq.html#accessing-record-metadata-such-as-topic-partition-and-offset-information
   accessed on 15th August 2020.
+- https://en.wikipedia.org/wiki/Log_rotation accessed on 18th August 2020.

@@ -71,11 +71,10 @@ public class StreamingAggregatesDDD {
 
     Map<String, String> stateStoreConfig = new HashMap<>();
     stateStoreConfig.put(TopicConfig.SEGMENT_BYTES_CONFIG, "3000");
-    stateStoreConfig.put(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, "2");
     stateStoreConfig.put(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE);
     // IDK Why this treated as 60.000 ms in the real case
-    // When application is shutting down it will be scheduled to be deleted
-    stateStoreConfig.put(TopicConfig.RETENTION_MS_CONFIG, "1"); // 1 seconds
+    // When the file is not elected as the main file, it will be scheduled to be deleted after 1 minutes
+    stateStoreConfig.put(TopicConfig.RETENTION_MS_CONFIG, "1"); // 1 minutes
 
     System.out.println(stateStoreConfig);
 
