@@ -33,7 +33,7 @@ public class StreamingAggregatesDDD {
     final String TABLE_AGGREGATE = childrenTopic + "_table_aggregate";
 
     Properties props = new Properties();
-    props.put(StreamsConfig.APPLICATION_ID_CONFIG, "streaming-aggregates-ddd5");
+    props.put(StreamsConfig.APPLICATION_ID_CONFIG, "streaming-aggregates");
     props.put(ConsumerConfig.GROUP_ID_CONFIG, "group1");
     props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
     props.put(StreamsConfig.CACHE_MAX_BYTES_BUFFERING_CONFIG, 10 * 1024);
@@ -72,9 +72,7 @@ public class StreamingAggregatesDDD {
     Map<String, String> stateStoreConfig = new HashMap<>();
     stateStoreConfig.put(TopicConfig.SEGMENT_BYTES_CONFIG, "3000");
     stateStoreConfig.put(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE);
-    // IDK Why this treated as 60.000 ms in the real case
-    // When the file is not elected as the main file, it will be scheduled to be deleted after 1 minutes
-    stateStoreConfig.put(TopicConfig.RETENTION_MS_CONFIG, "1"); // 1 minutes
+    stateStoreConfig.put(TopicConfig.RETENTION_MS_CONFIG, "60000"); // 1 minutes
 
     System.out.println(stateStoreConfig);
 

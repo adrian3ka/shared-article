@@ -121,7 +121,7 @@ docker-compose exec kafka /kafka/bin/kafka-console-consumer.sh \
     --topic dbserver1.inventory.addresses
 ```
 
-You should see the following output (formatted and omitting the schema information for the sake of readability) for the 
+You should see the following output (formatted and omitted the schema information for readability) for the 
 topic with customer changes:
 ```text
 {
@@ -259,15 +259,14 @@ At the end, the KTable changes streamed to a KStream, which in turn gets saved i
 This allows making use of the resulting DDD aggregates in manifold ways.
 
 ```
-     KTable<DefaultId,CustomerAddressAggregate> dddAggregate =
-               customerTable.join(addressTable, (customer, addresses) ->
-                   customer.get_eventType() == EventType.DELETE ?
-                           null :
-                           new CustomerAddressAggregate(customer,addresses.getEntries())
-               );
-     
-       dddAggregate.toStream().to("final_ddd_aggregates",
-                                   Produced.with(defaultIdSerde,(Serde)aggregateSerde));
+  KTable<DefaultId,CustomerAddressAggregate> dddAggregate =
+    customerTable.join(addressTable, (customer, addresses) ->
+      customer.get_eventType() == EventType.DELETE ?
+        null :
+        new CustomerAddressAggregate(customer,addresses.getEntries())
+    );
+ 
+  dddAggregate.toStream().to("final_ddd_aggregates", Produced.with(defaultIdSerde,(Serde) aggregateSerde));
 ```
 Records in the customers KTable might receive a CDC the `delete` event. If so, this can be detected by checking the 
 event type field of the customer POJO and e.g. return 'null' instead of a DDD aggregate. 
@@ -464,6 +463,8 @@ offset (please see the explanation above if you just jump into this part). If we
 Stream application will respect to the value on `auto.offset.reset` config. Kafka stream will always renew the time 
 while committed the offset each time a data processed.
 
+Notes: <b>Please revert the config to "earliest" if you want to follow along with the tutorial below</b>
+
 ### Changelog retention and file rotation
 In information technology, file rotation is an automated process used in system administration in which files 
 are compressed, moved (archived), renamed or deleted once they are too old or too big (there can be other metrics that 
@@ -475,42 +476,148 @@ and keeping the files small enough on the system for the efficiency purpose.
 
 In Kafka Stream application it implements the file rotation, for now we would take a look at the change log rotation
 on the aggregator application while saving the aggregated record to the changelog file. First we need to take down all 
-the running applications by running command `docker-compose down`. First of all let's see the snippet code:
+the running applications by running command `docker-compose down`. First of all lets see the snippet code:
 ```
 Map<String, String> stateStoreConfig = new HashMap<>();
 stateStoreConfig.put(TopicConfig.SEGMENT_BYTES_CONFIG, "3000");
 stateStoreConfig.put(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE);  
-// IDK Why this treated as 60.000 ms in the real case
-// When the file is not elected as the main file, it will be scheduled to be deleted after 1 minutes
-stateStoreConfig.put(TopicConfig.RETENTION_MS_CONFIG, "1"); // 1 minutes
+stateStoreConfig.put(TopicConfig.RETENTION_MS_CONFIG, "60000"); // 1 minutes
 ```
 
-### Drawbacks and Limitations
+First the config `SEGMENT_BYTES_CONFG` it will limit the size of the change log file for every part. We set it into 3000
+it means the file size will not exceed more than 3000 bytes or 3kb. If the file exceeds more than 3kb it will do some
+rotation to the file, we will try to discuss it later how it will rotate the file. The next config parameter is 
+`CLEANUP_POLICY_CONFIG` how Kafka Stream application will handle the log rotation if it exceeds the retention time,
+whether it will be deleted or just compressed (compacted), the available options are: `CLEANUP_POLICY_DELETE` or 
+`CLEANUP_POLICY_COMPACT`. The final parameter we would to explore is `RETENTION_MS_CONFIG` it describe how long the
+system will retain the file(s) if it is not elected as the main file.
 
-While this first version for creating DDD aggregates from table-based CDC events basically works, it is very important 
-to understand its current limitations:
-- not generically applicable thus needs custom code for POJOs and intermediate types
-- cannot be scaled across multiple instances as is due to missing but necessary data repartitioning prior to processing
-- limited to building aggregates based on a single JOIN between 1:N relationships
-- resulting DDD aggregates are eventually consistent, meaning it is possible for them to temporarily exhibit 
-  intermediate state before converging
+From all the config above we could say "we would like to rotate the file if it's size greater than 3kb, and the file 
+not elected as the main file it would be scheduled to deleted after 1 minutes".
 
-The first few can be addressed with a reasonable amount of work on the KStreams application. The last one, dealing with 
-the eventually consistent nature of resulting DDD aggregates is much harder to correct and will require some efforts at 
-Debezium’s own CDC mechanism.
+First of all please go through all the command before until the last command:
 
-### Outlook
+```
+INSERT INTO addresses VALUES (default, 1005, 'Street', 'City', 'State', '12312', 'LIVING');
+```
 
-In this post we described an approach for creating aggregated events from Debezium’s CDC events. 
-In a follow-up blog post we may dive a bit more into the topic of how to be able to horizontally scale the DDD creation 
-by running multiple KStreams aggregator instances. For that purpose, the data needs proper re-partitioning before 
-running the topology. In addition, it could be interesting to look into a somewhat more generic version which only needs
-custom classes to describe the two main POJOs involved.
-We also thought about providing a ready-to-use component which would work in generic way (based on Connect records, 
-i.e. not tied to a specific serialization format such as JSON) and could be set up as a configurable stand-alone process 
-running given aggregations.
+Now we would like to watch the changelog file on the Kafka instance <b>(not Kafka Stream)</b> by executing the command
+below:
+```shell script
+docker container ls | grep kafka-debezium-example # get the container id
+docker exec -it [container_id] bash # replace container id with the output above e.g.: 3b88dfb5cc13
 
-Reference:
+cd data/1/streaming-aggregates-dbserver1.inventory.addresses_table_aggregate-changelog-0/ # move to changelog folder
+```
+
+From there we could run command `ls -l` to list down all the available file, my output from the command is:
+```shell script
+-rw-r--r-- 1 kafka kafka 10485760 Aug 18 05:09 00000000000000000000.index
+-rw-r--r-- 1 kafka kafka     1596 Aug 18 05:10 00000000000000000000.log
+-rw-r--r-- 1 kafka kafka 10485756 Aug 18 05:09 00000000000000000000.timeindex
+-rw-r--r-- 1 kafka kafka        8 Aug 18 05:09 leader-epoch-checkpoint
+```
+Maybe you could have a different output but with a similar format. We could see the latest index is `0`, and it's the
+latest committed index (not offset), and it would be elected as the main file (will be not schedule to deleted). Lets 
+going back to MySQL terminal and execute some command multiple 2 times:
+```
+INSERT INTO addresses VALUES (default, 1005, 'Street', 'City', 'State', '12312', 'LIVING');
+```
+Try to list down again all the available file, it will be outputing:
+```shell script
+-rw-r--r-- 1 kafka kafka 10485760 Aug 18 05:13 00000000000000000005.index
+-rw-r--r-- 1 kafka kafka      903 Aug 18 05:14 00000000000000000005.log
+-rw-r--r-- 1 kafka kafka       10 Aug 18 05:13 00000000000000000005.snapshot
+-rw-r--r-- 1 kafka kafka 10485756 Aug 18 05:13 00000000000000000005.timeindex
+-rw-r--r-- 1 kafka kafka        8 Aug 18 05:13 leader-epoch-checkpoint
+```
+
+The file index would be increasing to `0` from `5`. As you could see from the on the Kafka Stream terminal or 
+Consumer Console on `final_ddd_aggregates` topic the Kafka Stream Application still aggregating all the data with 
+address id: `17, 18, 19`. While 18 and 19 are the new records that we just made. 
+Here are the output below on my terminal (formatted):
+```shell script
+[KTABLE-TOSTREAM-0000000016]: DefaultId{id=1005}, CustomerAddressAggregate{
+customer=Customer{_eventType='UPSERT', id=1005, first_name='Adrian Eka', last_name='Sanjaya', email='eekkaaadrian@gmail.com'}, 
+addresses=[
+  Address{_eventType='UPSERT', id=17, customer_id=1005, street='Street', city='City', state='State', zip='12312', type='LIVING'}, 
+  Address{_eventType='UPSERT', id=18, customer_id=1005, street='Street', city='City', state='State', zip='12312', type='LIVING'}, 
+  Address{_eventType='UPSERT', id=19, customer_id=1005, street='Street', city='City', state='State', zip='12312', type='LIVING'}
+]}
+```
+
+Now, try to restart the Kafka Stream Application (you can stop it with `ctrl+c` and rerun it again with 
+`docker-compose up --build aggregator`). After that try to insert Address data again:
+```
+UPDATE customers SET first_name = 'Adrian E' WHERE id = 1005; # Try to trigger the aggregate
+INSERT INTO addresses VALUES (default, 1005, 'Street', 'City', 'State', '12312', 'LIVING');
+```
+
+It would be still aggregating all the previous data (because the data will be store to the file and will be re-read on 
+starting the application), the output on the terminal console will be like this:
+
+```shell script
+[KTABLE-TOSTREAM-0000000016]: DefaultId{id=1005}, CustomerAddressAggregate{
+customer=Customer{_eventType='UPSERT', id=1005, first_name='Adrian E', last_name='Sanjaya', email='eekkaaadrian@gmail.com'}, 
+addresses=[
+  Address{_eventType='UPSERT', id=17, customer_id=1005, street='Street', city='City', state='State', zip='12312', type='LIVING'}, 
+  Address{_eventType='UPSERT', id=18, customer_id=1005, street='Street', city='City', state='State', zip='12312', type='LIVING'}, 
+  Address{_eventType='UPSERT', id=19, customer_id=1005, street='Street', city='City', state='State', zip='12312', type='LIVING'},
+  Address{_eventType='UPSERT', id=20, customer_id=1005, street='Street', city='City', state='State', zip='12312', type='LIVING'}
+]}
+```
+
+Now try to wait until the Kafka schedule to delete file index 5. The output on Kafka terminal would be:
+```shell script
+kafka_1           | 2020-08-18 05:18:45,425 - INFO  [kafka-scheduler-6:Logging$class@72] - Scheduling log segment 5 for log streaming-aggregates-dbserver1.inventory.addresses_table_aggregate-changelog-0 for deletion.
+kafka_1           | 2020-08-18 05:18:45,430 - INFO  [kafka-scheduler-6:Logging$class@72] - Incrementing log start offset of partition streaming-aggregates-dbserver1.inventory.addresses_table_aggregate-changelog-0 to 8 in dir /kafka/data/1
+kafka_1           | 2020-08-18 05:18:45,444 - INFO  [kafka-scheduler-6:Logging$class@72] - Cleared earliest 0 entries from epoch cache based on passed offset 8 leaving 1 in EpochFile for partition streaming-aggregates-dbserver1.inventory.addresses_table_aggregate-changelog-0
+kafka_1           | 2020-08-18 05:18:45,450 - INFO  [kafka-scheduler-6:Logging$class@72] - Found deletable segments with base offsets [8] due to retention time 1ms breach
+kafka_1           | 2020-08-18 05:18:45,456 - INFO  [kafka-scheduler-6:Logging$class@72] - Rolled new log segment for 'streaming-aggregates-dbserver1.inventory.addresses_table_temporary-changelog-0' in 5 ms.
+kafka_1           | 2020-08-18 05:18:45,460 - INFO  [kafka-scheduler-6:Logging$class@72] - Scheduling log segment 8 for log streaming-aggregates-dbserver1.inventory.addresses_table_temporary-changelog-0 for deletion.
+kafka_1           | 2020-08-18 05:18:45,463 - INFO  [kafka-scheduler-6:Logging$class@72] - Incrementing log start offset of partition streaming-aggregates-dbserver1.inventory.addresses_table_temporary-changelog-0 to 11 in dir /kafka/data/1
+kafka_1           | 2020-08-18 05:18:45,470 - INFO  [kafka-scheduler-6:Logging$class@72] - Cleared earliest 0 entries from epoch cache based on passed offset 11 leaving 1 in EpochFile for partition streaming-aggregates-dbserver1.inventory.addresses_table_temporary-changelog-0
+connect_source_1  | 2020-08-18 05:19:36,555 INFO   ||  WorkerSourceTask{id=mysql-source-0} Committing offsets   [org.apache.kafka.connect.runtime.WorkerSourceTask]
+connect_source_1  | 2020-08-18 05:19:36,556 INFO   ||  WorkerSourceTask{id=mysql-source-0} flushing 0 outstanding messages for offset commit   [org.apache.kafka.connect.runtime.WorkerSourceTask]
+kafka_1           | 2020-08-18 05:19:45,430 - INFO  [kafka-scheduler-4:Logging$class@72] - Deleting segment 5 from log streaming-aggregates-dbserver1.inventory.addresses_table_aggregate-changelog-0.
+kafka_1           | 2020-08-18 05:19:45,431 - INFO  [kafka-scheduler-4:Logging$class@72] - Deleting index /kafka/data/1/streaming-aggregates-dbserver1.inventory.addresses_table_aggregate-changelog-0/00000000000000000005.index.deleted
+kafka_1           | 2020-08-18 05:19:45,436 - INFO  [kafka-scheduler-4:Logging$class@72] - Deleting index /kafka/data/1/streaming-aggregates-dbserver1.inventory.addresses_table_aggregate-changelog-0/00000000000000000005.timeindex.deleted
+```
+
+After that try to going back to the Kafka console and trying to list down all the available files, the output will be:
+```shell script
+-rw-r--r-- 1 kafka kafka 10485760 Aug 18 05:18 00000000000000000008.index
+-rw-r--r-- 1 kafka kafka        0 Aug 18 05:18 00000000000000000008.log
+-rw-r--r-- 1 kafka kafka       10 Aug 18 05:18 00000000000000000008.snapshot
+-rw-r--r-- 1 kafka kafka 10485756 Aug 18 05:18 00000000000000000008.timeindex
+-rw-r--r-- 1 kafka kafka        8 Aug 18 05:18 leader-epoch-checkpoint
+```
+
+It would delete the index 5 and create a new index, in my case it would be index `8` maybe you could have a different
+index. And if we try to restart the aggregator application and inserting some data:
+```
+UPDATE customers SET first_name = 'Adrian Eka Sanjaya' WHERE id = 1005; # Try to trigger the aggregate
+INSERT INTO addresses VALUES (default, 1005, 'Street', 'City', 'State', '12312', 'LIVING');
+```
+As the old file already deleted it would be only aggregating the latest data:
+```shell script
+[KTABLE-TOSTREAM-0000000016]: DefaultId{id=1005},
+CustomerAddressAggregate{customer=Customer{_eventType='UPSERT', id=1005, first_name='Adrian Eka Sanjaya', last_name='Sanjaya', email='eekkaaadrian@gmail.com'},
+addresses=[
+  Address{_eventType='UPSERT', id=21, customer_id=1005, street='Street', city='City', state='State', zip='12312', type='LIVING'}
+]}
+```
+
+If you try to execute the command below on mongo console it would only display the address with id 21.
+```shell script
+db.customers_with_addresses.find().pretty()
+```
+
+Hopefully you could understand how the Debezium and Kafka Stream works together along with its basic config parameter
+and how we could handle file rotation.
+
+---
+### Reference:
 - https://debezium.io/blog/2018/03/08/creating-ddd-aggregates-with-debezium-and-kafka-streams/ 
   accessed on 10th August 2020.
 - https://zookeeper.apache.org/ accessed on 13th August 2020.
