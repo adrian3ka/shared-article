@@ -1,5 +1,19 @@
 # Debezium and KStreams to Handle Data Aggregation
 
+#### Prerequisite:
+- [x] Java
+- [x] Kafka
+- [x] MySQL
+- [x] MongoDB
+- [x] Docker
+- [x] Docker Compose
+
+The full source code and file for the example could be found at:
+```
+https://github.com/adrian3ka/shared-article/tree/master/debezium-kafka-stream-aggregates
+```
+
+---
 In now days microservice-based architectures is one of the most popular in industry, and they are often found in 
 enterprise scale applications lately. The main goal of microservices is to keep the application small (micro) and have
 its own knowledge to serve the specified domain to be maintainable and have a readable code. So microservice-based
@@ -65,23 +79,23 @@ Once all services have been started, register an instance of the Debezium MySQL 
 JSON document:
 ```json
 {
-    "name": "mysql-source",
-    "config": {
-        "connector.class": "io.debezium.connector.mysql.MySqlConnector",
-        "tasks.max": "1",
-        "database.hostname": "mysql",
-        "database.port": "3306",
-        "database.user": "debezium",
-        "database.password": "dbz",
-        "database.server.id": "184054",
-        "database.server.name": "dbserver1",
-        "table.whitelist": "inventory.customers,inventory.addresses",
-        "database.history.kafka.bootstrap.servers": "kafka:9092",
-        "database.history.kafka.topic": "schema-changes.inventory",
-        "transforms": "unwrap",
-        "transforms.unwrap.type":"io.debezium.transforms.UnwrapFromEnvelope",
-        "transforms.unwrap.drop.tombstones":"false"
-    }
+  "name": "mysql-source",
+  "config": {
+    "connector.class": "io.debezium.connector.mysql.MySqlConnector",
+    "tasks.max": "1",
+    "database.hostname": "mysql",
+    "database.port": "3306",
+    "database.user": "debezium",
+    "database.password": "dbz",
+    "database.server.id": "184054",
+    "database.server.name": "dbserver1",
+    "table.whitelist": "inventory.customers,inventory.addresses",
+    "database.history.kafka.bootstrap.servers": "kafka:9092",
+    "database.history.kafka.topic": "schema-changes.inventory",
+    "transforms": "unwrap",
+    "transforms.unwrap.type":"io.debezium.transforms.UnwrapFromEnvelope",
+    "transforms.unwrap.drop.tombstones":"false"
+  }
 }
 ```
 
@@ -108,17 +122,17 @@ these command:
 
 ```shell script
 docker-compose exec kafka /kafka/bin/kafka-console-consumer.sh \
-    --bootstrap-server kafka:9092 \
-    --from-beginning \
-    --property print.key=true \
-    --topic dbserver1.inventory.customers 
+  --bootstrap-server kafka:9092 \
+  --from-beginning \
+  --property print.key=true \
+  --topic dbserver1.inventory.customers 
 
 # Open another terminal or you could utilize your tmux to show up the CDC message on the addresses table
 docker-compose exec kafka /kafka/bin/kafka-console-consumer.sh \
-    --bootstrap-server kafka:9092 \
-    --from-beginning \
-    --property print.key=true \
-    --topic dbserver1.inventory.addresses
+  --bootstrap-server kafka:9092 \
+  --from-beginning \
+  --property print.key=true \
+  --topic dbserver1.inventory.addresses
 ```
 
 You should see the following output (formatted and omitted the schema information for readability) for the 
