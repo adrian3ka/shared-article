@@ -566,21 +566,28 @@ addresses=[
 ]}
 ```
 
-Now try to wait until the Kafka schedule to delete file index 5. The output on Kafka terminal would be:
+Now try to wait until the Kafka schedule to delete file index `0` and `7`. The output on Kafka terminal would be:
 ```shell script
-kafka_1           | 2020-08-18 05:18:45,425 - INFO  [kafka-scheduler-6:Logging$class@72] - Scheduling log segment 5 for log streaming-aggregates-dbserver1.inventory.addresses_table_aggregate-changelog-0 for deletion.
-kafka_1           | 2020-08-18 05:18:45,430 - INFO  [kafka-scheduler-6:Logging$class@72] - Incrementing log start offset of partition streaming-aggregates-dbserver1.inventory.addresses_table_aggregate-changelog-0 to 8 in dir /kafka/data/1
-kafka_1           | 2020-08-18 05:18:45,444 - INFO  [kafka-scheduler-6:Logging$class@72] - Cleared earliest 0 entries from epoch cache based on passed offset 8 leaving 1 in EpochFile for partition streaming-aggregates-dbserver1.inventory.addresses_table_aggregate-changelog-0
-kafka_1           | 2020-08-18 05:18:45,450 - INFO  [kafka-scheduler-6:Logging$class@72] - Found deletable segments with base offsets [8] due to retention time 1ms breach
-kafka_1           | 2020-08-18 05:18:45,456 - INFO  [kafka-scheduler-6:Logging$class@72] - Rolled new log segment for 'streaming-aggregates-dbserver1.inventory.addresses_table_temporary-changelog-0' in 5 ms.
-kafka_1           | 2020-08-18 05:18:45,460 - INFO  [kafka-scheduler-6:Logging$class@72] - Scheduling log segment 8 for log streaming-aggregates-dbserver1.inventory.addresses_table_temporary-changelog-0 for deletion.
-kafka_1           | 2020-08-18 05:18:45,463 - INFO  [kafka-scheduler-6:Logging$class@72] - Incrementing log start offset of partition streaming-aggregates-dbserver1.inventory.addresses_table_temporary-changelog-0 to 11 in dir /kafka/data/1
-kafka_1           | 2020-08-18 05:18:45,470 - INFO  [kafka-scheduler-6:Logging$class@72] - Cleared earliest 0 entries from epoch cache based on passed offset 11 leaving 1 in EpochFile for partition streaming-aggregates-dbserver1.inventory.addresses_table_temporary-changelog-0
-connect_source_1  | 2020-08-18 05:19:36,555 INFO   ||  WorkerSourceTask{id=mysql-source-0} Committing offsets   [org.apache.kafka.connect.runtime.WorkerSourceTask]
-connect_source_1  | 2020-08-18 05:19:36,556 INFO   ||  WorkerSourceTask{id=mysql-source-0} flushing 0 outstanding messages for offset commit   [org.apache.kafka.connect.runtime.WorkerSourceTask]
-kafka_1           | 2020-08-18 05:19:45,430 - INFO  [kafka-scheduler-4:Logging$class@72] - Deleting segment 5 from log streaming-aggregates-dbserver1.inventory.addresses_table_aggregate-changelog-0.
-kafka_1           | 2020-08-18 05:19:45,431 - INFO  [kafka-scheduler-4:Logging$class@72] - Deleting index /kafka/data/1/streaming-aggregates-dbserver1.inventory.addresses_table_aggregate-changelog-0/00000000000000000005.index.deleted
-kafka_1           | 2020-08-18 05:19:45,436 - INFO  [kafka-scheduler-4:Logging$class@72] - Deleting index /kafka/data/1/streaming-aggregates-dbserver1.inventory.addresses_table_aggregate-changelog-0/00000000000000000005.timeindex.deleted
+kafka_1           | 2020-08-18 05:48:45,368 - INFO  [kafka-scheduler-9:Logging$class@72] - Scheduling log segment 0 for log streaming-aggregates-dbserver1.inventory.addresses_table_aggregate-changelog-0 for deletion.
+kafka_1           | 2020-08-18 05:48:45,375 - INFO  [kafka-scheduler-9:Logging$class@72] - Scheduling log segment 7 for log streaming-aggregates-dbserver1.inventory.addresses_table_aggregate-changelog-0 for deletion.
+kafka_1           | 2020-08-18 05:48:45,389 - INFO  [kafka-scheduler-9:Logging$class@72] - Incrementing log start offset of partition streaming-aggregates-dbserver1.inventory.addresses_table_aggregate-changelog-0 to 8 in dir /kafka/data/1
+kafka_1           | 2020-08-18 05:48:45,399 - INFO  [kafka-scheduler-9:Logging$class@72] - Cleared earliest 0 entries from epoch cache based on passed offset 8 leaving 1 in EpochFile for partition streaming-aggregates-dbserver1.inventory.addresses_table_aggregate-changelog-0
+kafka_1           | 2020-08-18 05:48:45,404 - INFO  [kafka-scheduler-9:Logging$class@72] - Found deletable segments with base offsets [0] due to retention time 60000ms breach
+kafka_1           | 2020-08-18 05:48:45,407 - INFO  [kafka-scheduler-9:Logging$class@72] - Rolled new log segment for 'streaming-aggregates-dbserver1.inventory.addresses_table_temporary-changelog-0' in 2 ms.
+kafka_1           | 2020-08-18 05:48:45,409 - INFO  [kafka-scheduler-9:Logging$class@72] - Scheduling log segment 0 for log streaming-aggregates-dbserver1.inventory.addresses_table_temporary-changelog-0 for deletion.
+kafka_1           | 2020-08-18 05:48:45,410 - INFO  [kafka-scheduler-9:Logging$class@72] - Incrementing log start offset of partition streaming-aggregates-dbserver1.inventory.addresses_table_temporary-changelog-0 to 11 in dir /kafka/data/1
+kafka_1           | 2020-08-18 05:48:45,419 - INFO  [kafka-scheduler-9:Logging$class@72] - Cleared earliest 0 entries from epoch cache based on passed offset 11 leaving 1 in EpochFile for partition streaming-aggregates-dbserver1.inventory.addresses_table_temporary-changelog-0
+connect_source_1  | 2020-08-18 05:49:31,205 INFO   ||  WorkerSourceTask{id=mysql-source-0} Committing offsets   [org.apache.kafka.connect.runtime.WorkerSourceTask]
+connect_source_1  | 2020-08-18 05:49:31,205 INFO   ||  WorkerSourceTask{id=mysql-source-0} flushing 0 outstanding messages for offset commit   [org.apache.kafka.connect.runtime.WorkerSourceTask]
+kafka_1           | 2020-08-18 05:49:45,376 - INFO  [kafka-scheduler-1:Logging$class@72] - Deleting segment 0 from log streaming-aggregates-dbserver1.inventory.addresses_table_aggregate-changelog-0.
+kafka_1           | 2020-08-18 05:49:45,381 - INFO  [kafka-scheduler-7:Logging$class@72] - Deleting segment 7 from log streaming-aggregates-dbserver1.inventory.addresses_table_aggregate-changelog-0.
+kafka_1           | 2020-08-18 05:49:45,382 - INFO  [kafka-scheduler-7:Logging$class@72] - Deleting index /kafka/data/1/streaming-aggregates-dbserver1.inventory.addresses_table_aggregate-changelog-0/00000000000000000007.index.deleted
+kafka_1           | 2020-08-18 05:49:45,387 - INFO  [kafka-scheduler-1:Logging$class@72] - Deleting index /kafka/data/1/streaming-aggregates-dbserver1.inventory.addresses_table_aggregate-changelog-0/00000000000000000000.index.deleted
+kafka_1           | 2020-08-18 05:49:45,410 - INFO  [kafka-scheduler-4:Logging$class@72] - Deleting segment 0 from log streaming-aggregates-dbserver1.inventory.addresses_table_temporary-changelog-0.
+kafka_1           | 2020-08-18 05:49:45,411 - INFO  [kafka-scheduler-7:Logging$class@72] - Deleting index /kafka/data/1/streaming-aggregates-dbserver1.inventory.addresses_table_aggregate-changelog-0/00000000000000000007.timeindex.deleted
+kafka_1           | 2020-08-18 05:49:45,411 - INFO  [kafka-scheduler-1:Logging$class@72] - Deleting index /kafka/data/1/streaming-aggregates-dbserver1.inventory.addresses_table_aggregate-changelog-0/00000000000000000000.timeindex.deleted
+kafka_1           | 2020-08-18 05:49:45,412 - INFO  [kafka-scheduler-4:Logging$class@72] - Deleting index /kafka/data/1/streaming-aggregates-dbserver1.inventory.addresses_table_temporary-changelog-0/00000000000000000000.index.deleted
+kafka_1           | 2020-08-18 05:49:45,412 - INFO  [kafka-scheduler-4:Logging$class@72] - Deleting index /kafka/data/1/streaming-aggregates-dbserver1.inventory.addresses_table_temporary-changelog-0/00000000000000000000.timeindex.deleted
 ```
 
 After that try to go back to the Kafka console and trying to list down all the available files, the output will be:
@@ -606,7 +613,7 @@ The output could be like this (if the file already deleted):
 -rw-r--r-- 1 kafka kafka        8 Aug 18 05:48 leader-epoch-checkpoint
 ```
 
-It would delete the index 0 and 7 also create a new index, in my case it would be index `8` maybe you could have a different
+It would delete the index `0` and `7` also create a new index, in my case it would be index `8` maybe you could have a different
 index. If we try to restart the aggregator application and inserting some data:
 ```
 UPDATE customers SET first_name = 'Adrian Eka Sanjaya' WHERE id = 1005; # Try to trigger the aggregate
@@ -621,7 +628,7 @@ addresses=[
 ]}
 ```
 
-If you try to execute the command below on mongo console it would only display the address with id 21.
+If you try to execute the command below on mongo console it would only display the address with id `21`.
 ```shell script
 db.customers_with_addresses.find().pretty()
 ```
