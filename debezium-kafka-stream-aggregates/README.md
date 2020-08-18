@@ -90,8 +90,8 @@ For our purposes we’re only interested in changes to the customers and address
 property given to just select these two tables. Another noteworthy thing is the `unwrap` transform that is applied. 
 By default, Debezium’s CDC events would contain the old and new state of changed rows and some additional metadata on 
 the source of the change. By applying the `io.debezium.transforms.UnwrapFromEnvelope` 
-SMT (single message transformation) on `transforms.unwrap.type` key, only the new state will be propagated into the 
-corresponding Kafka topics.
+SMT (single message transformation) on `transforms.unwrap.type` key, only the new state / update will be propagated into
+the corresponding Kafka topics.
 
 ```shell script
 # Start MySQL connector
@@ -122,22 +122,23 @@ docker-compose exec kafka /kafka/bin/kafka-console-consumer.sh \
 ```
 
 You should see the following output (formatted and omitted the schema information for readability) for the 
-topic with customer changes:
+topic with customer changes. For the addresses changes output you should see something similar with an id and the payload.
+Here are the example below:
 ```text
 {
-    "schema": { ... },
-    "payload": {
-        "id": 1001
-    }
+  "schema": { ... },
+  "payload": {
+    "id": 1001
+  }
 }
 {
-    "schema": { ... },
-    "payload": {
-        "id": 1001,
-        "first_name": "Sally",
-        "last_name": "Thomas",
-        "email": "sally.thomas@acme.com"
-    }
+  "schema": { ... },
+  "payload": {
+    "id": 1001,
+    "first_name": "Sally",
+    "last_name": "Thomas",
+    "email": "sally.thomas@acme.com"
+  }
 }
 ...
 ```
@@ -155,15 +156,11 @@ the data from the beginning or the latest one. For this example we would try to 
 beginning of the time. This could be done by add some config parameter on the code:
 
 ```
-  private static final String AUTO_OFFSET_RESET_CONFIG = "earliest";
-
-  ...
-
-  Properties props = new Properties();
-  
-  ...
-
-  props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, AUTO_OFFSET_RESET_CONFIG);
+private static final String AUTO_OFFSET_RESET_CONFIG = "earliest";
+...
+Properties props = new Properties();
+...
+props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, AUTO_OFFSET_RESET_CONFIG);
 ```
 
 The other possible value is `latest` so the Kafka Stream application will not try to process the data from the beginning
@@ -177,24 +174,24 @@ it already setup it would only read based on the offset. We will try to catch up
 
 We would like to use Kafka Stream API to process and aggregate the data changes. Kafka Streams is a client library for 
 building applications and microservices, where the input and output data stored in Kafka clusters. It combines the 
-simplicity of writing and deploying standard Java and Scala applications on the client side with the benefits of Kafka's 
+simplicity of writing and deploying standard Java or Scala applications on the client side with the benefits of Kafka's 
 server-side cluster technology.
 
 The KStreams application is going to process data from the two Kafka topics. These topics receive CDC events based on 
 the customers and addresses relations found in MySQL, each of which has its corresponding Jackson-annotated POJO 
-(Customer and Address), enriched by a field holding the CDC event type (i.e. UPSERT/DELETE). Since the Kafka topic 
+(Customer and Address), enriching by a field holding the CDC event type (i.e. UPSERT/DELETE). Since the Kafka topic 
 records are in Debezium JSON format with unwrapped envelopes, a special SerDe has been written in order to be able to 
 read/write these records using their POJO or Debezium event representation respectively. While the serializer simply 
-converts the POJOs into JSON using Jackson, the deserializer is a "hybrid" one, being able to deserialize from either 
-Debezium CDC events with POJOs. With that in place, the KStreams topology to create and maintain DDD aggregates 
+converts the POJOs into JSON using Jackson, the deserializer is a "hybrid" one, its possible to deserialize from either 
+Debezium CDC events with POJOs. With that functionality, the KStreams possible to create and maintain DDD aggregates 
 on-the-fly can be built as follows:
-  
+
 ####  Customers Topic ("parent")
 All the customer records came from the customer topic into a KTable which will automatically maintain the latest state 
-per customer according to the record key (i.e. the customer’s PK)
+per customer according to the record key such as the customer’s PK that is the `id` column.
 
 ```text
-KTable<DefaultId, Customer> customerTable = builder.table(parentTopic, Consumed.with(defaultIdSerde,customerSerde));
+KTable<DefaultId, Customer> customerTable = builder.table(parentTopic, Consumed.with(defaultIdSerde, customerSerde));
 ```
 
 #### Addresses Topic ("children")
@@ -206,10 +203,10 @@ KStream<DefaultId, Address> addressStream = builder.stream(childrenTopic, Consum
 ```
 
 Second, a `pseudo` grouping of these address records done based on their keys (the original primary key in the relation). 
-During this step the relationships towards the corresponding customer records still maintained. This effectively allows 
-keeping track which address record belongs to which customer record, even in the light of address record deletions. 
-To achieve this an additional LatestAddress POJO introduced which allows to store the latest known PK <→ FK relation in 
-addition to the Address record itself.
+During this step the relationships towards the corresponding customer records still maintained. This allows keeping 
+track which address record belongs to which customer record, even in the light of address record deletions. To achieve 
+this an additional LatestAddress POJO introduced which allows to store the latest known PK - FK relation in addition to 
+the Address record itself.
 
 ```text
 KTable<DefaultId,LatestAddress> tempTable = addressStream
@@ -217,8 +214,7 @@ KTable<DefaultId,LatestAddress> tempTable = addressStream
   .aggregate(
     () -> new LatestAddress(),
     (DefaultId addressId, Address address, LatestAddress latest) -> {
-      latest.update(
-        address, addressId, new DefaultId(address.getCustomer_id()));
+      latest.update(address, addressId, new DefaultId(address.getCustomer_id()));
       return latest;
     },
     Materialized.<DefaultId,LatestAddress,KeyValueStore<Bytes, byte[]>>
@@ -228,11 +224,14 @@ KTable<DefaultId,LatestAddress> tempTable = addressStream
   );
 ```
 
-Third, the intermediate KTable is again converted to a KStream. The LatestAddress records transformed to have the 
+Third, the intermediate KTable is again converted into a KStream. The LatestAddress records transformed to have the 
 customer id (FK relationship) as their new key in order to group them per customer. During the grouping step, customer 
 specific addresses updated which can result in an address record being added or deleted. For this purpose, another 
 POJO called Addresses introduced, which holds a map of address records that gets updated accordingly. 
-The result is a KTable holding the most recent Addresses per customer id.
+The result is a KTable holding the most recent Addresses per customer id. Based on the code above one thing to be
+highlight is `Materialized`. It is the class available in Kafka Stream to keep the state store in the Kafka topic
+alongside with the changelog. We will cover this topic later while discussing the file rotation to keep the file small 
+and maintainable.
 
 ```
 KTable<DefaultId, Addresses> addressTable = tempTable.toStream()
@@ -253,10 +252,10 @@ KTable<DefaultId, Addresses> addressTable = tempTable.toStream()
 ```
 
 #### Combining Customers With Addresses
-Finally, it’s easy to bring customers and addresses together by joining the customers KTable with the addresses KTable 
-and thereby building the DDD aggregates which are represented by the CustomerAddressAggregate POJO. 
-At the end, the KTable changes streamed to a KStream, which in turn gets saved into a kafka topic. 
-This allows making use of the resulting DDD aggregates in manifold ways.
+Finally, we need to bring customers and addresses together by joining the customers KTable with the addresses KTable 
+and thereby building the DDD aggregates which are represented by the CustomerAddressAggregate POJO. At the end, the 
+KTable changes streamed to a KStream, which in turn gets saved into a kafka topic. This allows making use of the 
+resulting DDD aggregates in clear ways.
 
 ```
 KTable<DefaultId,CustomerAddressAggregate> dddAggregate =
@@ -269,11 +268,11 @@ KTable<DefaultId,CustomerAddressAggregate> dddAggregate =
 dddAggregate.toStream().to("final_ddd_aggregates", Produced.with(defaultIdSerde,(Serde) aggregateSerde));
 ```
 Records in the customers KTable might receive a CDC the `delete` event. If so, this can be detected by checking the 
-event type field of the customer POJO and e.g. return 'null' instead of a DDD aggregate. 
-Such a convention can be helpful whenever consuming parties also need to act to deletions accordingly.
+event type field of the customer POJO and e.g. return 'null' instead of a DDD aggregate. This convention can be helpful 
+whenever consuming parties also need to act to deletions accordingly.
 
-The important part you should know is offset in Kafka. Kafka remembers your application by storing consumer offsets in a
-special topic. Offsets are numbers assigned to messages by the Kafka broker(s) indicating the order in which they 
+The next important part you should know is offset in Kafka. Kafka remembers your application by storing consumer offsets
+in a special topic. Offsets are numbers assigned to messages by the Kafka broker(s) indicating the order in which they 
 arrived at the broker(s). By remembering your application’s last committed offset, your application is only going to 
 process newly arrived messages. The configuration setting `offsets.retention.minutes` controls how long Kafka will 
 remember offsets in the special topic. The default value is 10,080 minutes (7 days).
@@ -326,7 +325,7 @@ structures and therefore it makes perfect sense to write them to data stores whi
 query and/or index them. Talking about NoSQL databases, a document store seems the most natural choice with MongoDB 
 being the leading database for such use cases.
 
-Thanks to Kafka Connect and numerous turn-key ready connectors it is almost effortless to get this done. Using a MongoDB 
+Thanks to Kafka Connect and numerous ready (to used) connectors it is almost effortless to get this done. Using MongoDB 
 sink connector from the open-source community, it is easy to have the DDD aggregates written into MongoDB. All it needs 
 is a proper configuration which can be posted to the REST API of Kafka Connect in order to run the connector.
 
@@ -352,15 +351,14 @@ In case the DDD aggregates should get written unmodified into MongoDB, a configu
 }
 ```
 
-As with the source connector file, deploy the connector using curl:
+The data will be stored in `customers_with_addresses` collection that already defined in `mongodb.collection` key. As 
+with the source connector file, deploy the connector using curl:
 ```shell script
 curl -i -X POST -H "Accept:application/json" -H  "Content-Type:application/json" http://localhost:8084/connectors/ -d @mongodb-sink.json
 ```
 
-This connector will consume messages from the "final_ddd_aggregates" Kafka topic and write them as MongoDB documents 
-into the `customers_with_addresses` collection.
-
-You can take a look by firing up a Mongo shell and querying the collection’s contents:
+This connector will consume messages from the "final_ddd_aggregates". You can take a look by firing up a Mongo shell and 
+querying the collection’s contents:
 ```shell script
 docker-compose exec mongodb bash -c 'mongo inventory'
 
@@ -370,38 +368,38 @@ db.customers_with_addresses.find().pretty()
 The result would be look like this:
 ```json
 {
-    "_id": {
-        "id": "1001"
+  "_id": {
+    "id": "1001"
+  },
+  "addresses": [
+    {
+      "zip": "76036",
+      "_eventType": "UPSERT",
+      "city": "Euless",
+      "street": "3183 Moore Avenue",
+      "id": "10",
+      "state": "Texas",
+      "customer_id": "1001",
+      "type": "SHIPPING"
     },
-    "addresses": [
-        {
-            "zip": "76036",
-            "_eventType": "UPSERT",
-            "city": "Euless",
-            "street": "3183 Moore Avenue",
-            "id": "10",
-            "state": "Texas",
-            "customer_id": "1001",
-            "type": "SHIPPING"
-        },
-        {
-            "zip": "17116",
-            "_eventType": "UPSERT",
-            "city": "Harrisburg",
-            "street": "2389 Hidden Valley Road",
-            "id": "11",
-            "state": "Pennsylvania",
-            "customer_id": "1001",
-            "type": "BILLING"
-        }
-    ],
-    "customer": {
-        "_eventType": "UPSERT",
-        "last_name": "Thomas",
-        "id": "1001",
-        "first_name": "Sally",
-        "email": "sally.thomas@acme.com"
+    {
+      "zip": "17116",
+      "_eventType": "UPSERT",
+      "city": "Harrisburg",
+      "street": "2389 Hidden Valley Road",
+      "id": "11",
+      "state": "Pennsylvania",
+      "customer_id": "1001",
+      "type": "BILLING"
     }
+  ],
+  "customer": {
+    "_eventType": "UPSERT",
+    "last_name": "Thomas",
+    "id": "1001",
+    "first_name": "Sally",
+    "email": "sally.thomas@acme.com"
+  }
 }
 ```
 
@@ -426,7 +424,10 @@ INSERT INTO addresses VALUES (default, 1005, 'Street', 'City', 'State', '12312',
 ```
 
 After execute all MySQL above, you should see that the corresponding aggregate document in MongoDB has been updated 
-accordingly.
+accordingly with execute the command below on MongoDB console:
+```shell script
+db.customers_with_addresses.find().pretty()
+```
 
 ## Auto Offset Reset
 
