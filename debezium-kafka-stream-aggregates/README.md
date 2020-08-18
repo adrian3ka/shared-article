@@ -597,6 +597,14 @@ After that try to go back to the Kafka console and trying to list down all the a
 -rw-r--r-- 1 kafka kafka 10485756 Aug 18 05:48 00000000000000000008.timeindex
 -rw-r--r-- 1 kafka kafka        8 Aug 18 05:48 leader-epoch-checkpoint
 ```
+The output could be like this (if the file already deleted):
+```shell script
+-rw-r--r-- 1 kafka kafka 10485760 Aug 18 05:48 00000000000000000008.index
+-rw-r--r-- 1 kafka kafka        0 Aug 18 05:48 00000000000000000008.log
+-rw-r--r-- 1 kafka kafka       10 Aug 18 05:48 00000000000000000008.snapshot
+-rw-r--r-- 1 kafka kafka 10485756 Aug 18 05:48 00000000000000000008.timeindex
+-rw-r--r-- 1 kafka kafka        8 Aug 18 05:48 leader-epoch-checkpoint
+```
 
 It would delete the index 0 and 7 also create a new index, in my case it would be index `8` maybe you could have a different
 index. If we try to restart the aggregator application and inserting some data:
