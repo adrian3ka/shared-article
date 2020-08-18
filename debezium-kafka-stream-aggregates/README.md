@@ -525,14 +525,13 @@ INSERT INTO addresses VALUES (default, 1005, 'Street', 'City', 'State', '12312',
 ```
 Try to list down again all the available file, it will be outputing:
 ```shell script
--rw-r--r-- 1 kafka kafka 10485760 Aug 18 05:13 00000000000000000005.index
--rw-r--r-- 1 kafka kafka      903 Aug 18 05:14 00000000000000000005.log
--rw-r--r-- 1 kafka kafka       10 Aug 18 05:13 00000000000000000005.snapshot
--rw-r--r-- 1 kafka kafka 10485756 Aug 18 05:13 00000000000000000005.timeindex
--rw-r--r-- 1 kafka kafka        8 Aug 18 05:13 leader-epoch-checkpoint
+-rw-r--r-- 1 kafka kafka 10485760 Aug 18 05:44 00000000000000000000.index
+-rw-r--r-- 1 kafka kafka     2499 Aug 18 05:45 00000000000000000000.log
+-rw-r--r-- 1 kafka kafka 10485756 Aug 18 05:44 00000000000000000000.timeindex
+-rw-r--r-- 1 kafka kafka        8 Aug 18 05:44 leader-epoch-checkpoint
 ```
 
-The file index would be increasing to `0` from `5`. As you could see from the on the Kafka Stream terminal or 
+The file size would be increasing to `1596` from `2499`. As you could see from the on the Kafka Stream terminal or 
 Consumer Console on `final_ddd_aggregates` topic the Kafka Stream Application still aggregating all the data with 
 address id: `17, 18, 19`. While 18 and 19 are the new records that we just made. 
 Here are the output below on my terminal (formatted):
@@ -584,17 +583,23 @@ kafka_1           | 2020-08-18 05:19:45,431 - INFO  [kafka-scheduler-4:Logging$c
 kafka_1           | 2020-08-18 05:19:45,436 - INFO  [kafka-scheduler-4:Logging$class@72] - Deleting index /kafka/data/1/streaming-aggregates-dbserver1.inventory.addresses_table_aggregate-changelog-0/00000000000000000005.timeindex.deleted
 ```
 
-After that try to going back to the Kafka console and trying to list down all the available files, the output will be:
+After that try to go back to the Kafka console and trying to list down all the available files, the output will be:
 ```shell script
--rw-r--r-- 1 kafka kafka 10485760 Aug 18 05:18 00000000000000000008.index
--rw-r--r-- 1 kafka kafka        0 Aug 18 05:18 00000000000000000008.log
--rw-r--r-- 1 kafka kafka       10 Aug 18 05:18 00000000000000000008.snapshot
--rw-r--r-- 1 kafka kafka 10485756 Aug 18 05:18 00000000000000000008.timeindex
--rw-r--r-- 1 kafka kafka        8 Aug 18 05:18 leader-epoch-checkpoint
+-rw-r--r-- 1 kafka kafka        0 Aug 18 05:46 00000000000000000000.index.deleted
+-rw-r--r-- 1 kafka kafka     2499 Aug 18 05:45 00000000000000000000.log.deleted
+-rw-r--r-- 1 kafka kafka       12 Aug 18 05:46 00000000000000000000.timeindex.deleted
+-rw-r--r-- 1 kafka kafka        0 Aug 18 05:48 00000000000000000007.index.deleted
+-rw-r--r-- 1 kafka kafka      666 Aug 18 05:46 00000000000000000007.log.deleted
+-rw-r--r-- 1 kafka kafka       12 Aug 18 05:48 00000000000000000007.timeindex.deleted
+-rw-r--r-- 1 kafka kafka 10485760 Aug 18 05:48 00000000000000000008.index
+-rw-r--r-- 1 kafka kafka        0 Aug 18 05:48 00000000000000000008.log
+-rw-r--r-- 1 kafka kafka       10 Aug 18 05:48 00000000000000000008.snapshot
+-rw-r--r-- 1 kafka kafka 10485756 Aug 18 05:48 00000000000000000008.timeindex
+-rw-r--r-- 1 kafka kafka        8 Aug 18 05:48 leader-epoch-checkpoint
 ```
 
-It would delete the index 5 and create a new index, in my case it would be index `8` maybe you could have a different
-index. And if we try to restart the aggregator application and inserting some data:
+It would delete the index 0 and 7 also create a new index, in my case it would be index `8` maybe you could have a different
+index. If we try to restart the aggregator application and inserting some data:
 ```
 UPDATE customers SET first_name = 'Adrian Eka Sanjaya' WHERE id = 1005; # Try to trigger the aggregate
 INSERT INTO addresses VALUES (default, 1005, 'Street', 'City', 'State', '12312', 'LIVING');
