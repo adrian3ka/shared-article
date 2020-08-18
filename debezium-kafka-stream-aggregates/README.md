@@ -259,14 +259,14 @@ At the end, the KTable changes streamed to a KStream, which in turn gets saved i
 This allows making use of the resulting DDD aggregates in manifold ways.
 
 ```
-  KTable<DefaultId,CustomerAddressAggregate> dddAggregate =
-    customerTable.join(addressTable, (customer, addresses) ->
-      customer.get_eventType() == EventType.DELETE ?
-        null :
-        new CustomerAddressAggregate(customer,addresses.getEntries())
-    );
+KTable<DefaultId,CustomerAddressAggregate> dddAggregate =
+  customerTable.join(addressTable, (customer, addresses) ->
+    customer.get_eventType() == EventType.DELETE ?
+      null :
+      new CustomerAddressAggregate(customer,addresses.getEntries())
+  );
  
-  dddAggregate.toStream().to("final_ddd_aggregates", Produced.with(defaultIdSerde,(Serde) aggregateSerde));
+dddAggregate.toStream().to("final_ddd_aggregates", Produced.with(defaultIdSerde,(Serde) aggregateSerde));
 ```
 Records in the customers KTable might receive a CDC the `delete` event. If so, this can be detected by checking the 
 event type field of the customer POJO and e.g. return 'null' instead of a DDD aggregate. 
