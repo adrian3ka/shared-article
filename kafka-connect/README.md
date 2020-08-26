@@ -63,7 +63,7 @@
       --net=host \
       --rm \
       confluentinc/cp-kafka:5.0.0 \
-      kafka-topics --create --topic quickstart-avro-offsets --partitions 1 \
+      kafka-topics --create --topic quickstart-json-offsets --partitions 1 \
       --replication-factor 1 --if-not-exists --zookeeper localhost:32181
    ```
    ```
@@ -71,14 +71,14 @@
      --net=host \
      --rm \
      confluentinc/cp-kafka:5.0.0 \
-     kafka-topics --create --topic quickstart-avro-config --partitions 1 --replication-factor 1 --if-not-exists --zookeeper localhost:32181
+     kafka-topics --create --topic quickstart-json-config --partitions 1 --replication-factor 1 --if-not-exists --zookeeper localhost:32181
    ```
    ```
    docker run \
      --net=host \
      --rm \
      confluentinc/cp-kafka:5.0.0 \
-     kafka-topics --create --topic quickstart-avro-status --partitions 1 --replication-factor 1 --if-not-exists --zookeeper localhost:32181
+     kafka-topics --create --topic quickstart-json-status --partitions 1 --replication-factor 1 --if-not-exists --zookeeper localhost:32181
    ```
    Before moving on, you can verify that the topics are created:
    ``` 
@@ -103,22 +103,22 @@
     curl -k -SL "http://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-8.0.11.tar.gz" | tar -xzf - -C /tmp/quickstart/jars --strip-components=1 mysql-connector-java-8.0.11/mysql-connector-java-8.0.11.jar
     ```
 
-4. Start a connect worker with Avro support.
+4. Start a connect worker with Json support.
     ```
     docker run -d \
-      --name=kafka-connect-avro \
+      --name=kafka-connect-json \
       --net=host \
       -e CONNECT_BOOTSTRAP_SERVERS=localhost:29092 \
       -e CONNECT_REST_PORT=28083 \
-      -e CONNECT_GROUP_ID="quickstart-avro" \
-      -e CONNECT_CONFIG_STORAGE_TOPIC="quickstart-avro-config" \
-      -e CONNECT_OFFSET_STORAGE_TOPIC="quickstart-avro-offsets" \
-      -e CONNECT_STATUS_STORAGE_TOPIC="quickstart-avro-status" \
+      -e CONNECT_GROUP_ID="quickstart-json" \
+      -e CONNECT_CONFIG_STORAGE_TOPIC="quickstart-json-config" \
+      -e CONNECT_OFFSET_STORAGE_TOPIC="quickstart-json-offsets" \
+      -e CONNECT_STATUS_STORAGE_TOPIC="quickstart-json-status" \
       -e CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR=1 \
       -e CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR=1 \
       -e CONNECT_STATUS_STORAGE_REPLICATION_FACTOR=1 \
-      -e CONNECT_KEY_CONVERTER="io.confluent.connect.avro.AvroConverter" \
-      -e CONNECT_VALUE_CONVERTER="io.confluent.connect.avro.AvroConverter" \
+      -e CONNECT_KEY_CONVERTER="org.apache.kafka.connect.json.JsonConverter" \
+      -e CONNECT_VALUE_CONVERTER="org.apache.kafka.connect.json.JsonConverter" \
       -e CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL="http://localhost:8081" \
       -e CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL="http://localhost:8081" \
       -e CONNECT_INTERNAL_KEY_CONVERTER="org.apache.kafka.connect.json.JsonConverter" \
@@ -131,16 +131,16 @@
       confluentinc/cp-kafka-connect:latest
     ```
     ```
-    docker exec -it kafka-connect-avro bash
+    docker exec -it kafka-connect-json bash
     cd /etc/kafka-connect/jars/
     curl -k -SL "http://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-8.0.11.tar.gz" | tar -xzf - -C . --strip-components=1 mysql-connector-java-8.0.11/mysql-connector-java-8.0.11.jar
     exit
-    docker stop kafka-connect-avro
-    docker start kafka-connect-avro
+    docker stop kafka-connect-json
+    docker start kafka-connect-json
     ```
 5.  Make sure that the connect worker is healthy.
     ```
-    docker logs kafka-connect-avro | grep started
+    docker logs kafka-connect-json | grep started
     ```
     You should see the following output in your terminal window:
     ```
@@ -234,40 +234,25 @@
        confluentinc/cp-kafka:5.0.0 \
        kafka-topics --describe --zookeeper localhost:32181
     ```
-    Now you will read from the quickstart-jdbc-test topic to check if the connector works.
-    ```
-    docker run \
-      --net=host \
-      --rm \
-      confluentinc/cp-schema-registry:5.0.0 \
-      kafka-avro-console-consumer --bootstrap-server localhost:29092 --topic quickstart-jdbc-test --from-beginning \
-      --max-messages 100
-    ```
-    You should see the following:
-    ```
-    {"id":1,"name":{"string":"alice"},"email":{"string":"alice@abc.com"},"department":{"string":"engineering"},"modified":1472153437000}
-    {"id":2,"name":{"string":"bob"},"email":{"string":"bob@abc.com"},"department":{"string":"sales"},"modified":1472153437000}
-    ....
-    {"id":10,"name":{"string":"bob"},"email":{"string":"bob@abc.com"},"department":{"string":"sales"},"modified":1472153439000}
-    Processed a total of 10 messages
-    ```
+   
+    Now run the java application
 8. You will now launch a File Sink to read from this topic and write to an output file.
     ```
     curl -X POST -H "Content-Type: application/json" \
-      --data '{"name": "quickstart-avro-file-sink", "config": {"connector.class":"org.apache.kafka.connect.file.FileStreamSinkConnector", "tasks.max":"1", "topics":"quickstart-jdbc-test", "file": "/tmp/quickstart/jdbc-output.txt"}}' \
+      --data '{"name": "quickstart-json-file-sink", "config": {"connector.class":"org.apache.kafka.connect.file.FileStreamSinkConnector", "tasks.max":"1", "topics":"quickstart-jdbc-test", "file": "/tmp/quickstart/jdbc-output.txt"}}' \
       http://$CONNECT_HOST:28083/connectors
     ```
     You should see the following in the output.
     ```
-    {"name":"quickstart-avro-file-sink","config":{"connector.class":"org.apache.kafka.connect.file.FileStreamSinkConnector","tasks.max":"1","topics":"quickstart-jdbc-test","file":"/tmp/quickstart/jdbc-output.txt","name":"quickstart-avro-file-sink"},"tasks":[]}
+    {"name":"quickstart-json-file-sink","config":{"connector.class":"org.apache.kafka.connect.file.FileStreamSinkConnector","tasks.max":"1","topics":"quickstart-jdbc-test","file":"/tmp/quickstart/jdbc-output.txt","name":"quickstart-json-file-sink"},"tasks":[]}
     ```
     Check the status of the connector by running the following curl command:
     ```
-    curl -s -X GET http://$CONNECT_HOST:28083/connectors/quickstart-avro-file-sink/status
+    curl -s -X GET http://$CONNECT_HOST:28083/connectors/quickstart-json-file-sink/status
     ```
     You should get the response shown below:
     ```
-    {"name":"quickstart-avro-file-sink","connector":{"state":"RUNNING","worker_id":"localhost:28083"},"tasks":[{"state":"RUNNING","id":0,"worker_id":"localhost:28083"}]}
+    {"name":"quickstart-json-file-sink","connector":{"state":"RUNNING","worker_id":"localhost:28083"},"tasks":[{"state":"RUNNING","id":0,"worker_id":"localhost:28083"}]}
     ```
     Now check the file to see if the data is present. You will need to SSH into the VM if you are running Docker Machine.
     ```
