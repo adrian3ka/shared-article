@@ -109,7 +109,7 @@ public class Main {
   // First data on jupyter notebook
   /**
    * predict	No	      Yes
-   * Yes	    0.203162	0.796838
+   * Yes	    0.424039	0.575961
    */
   private static final ReorderDataModel reorderDataModel1 = ReorderDataModel.builder()
     .sku(1113120D)
@@ -140,7 +140,7 @@ public class Main {
   // 10th data on jupyter notebook
   /**
    * predict	No	      Yes
-   * Yes	    0.0245814	0.975419
+   * Yes	    0.0469849	0.953015
    */
   private static final ReorderDataModel reorderDataModel10 = ReorderDataModel.builder()
     .sku(1116870D)
@@ -166,14 +166,44 @@ public class Main {
     .ppapRisk(BooleanEnum.No)
     .stopAutoBuy(BooleanEnum.Yes)
     .revStop(BooleanEnum.No)
-    .build();
+    .build();// 10th data on jupyter notebook
+
+  /**
+   * predict	No	      Yes
+   * Yes	    0.983258	0.0167421
+   */
+  private static final ReorderDataModel notReorderDataModel1 = ReorderDataModel.builder()
+    .sku(1180690D)
+    .nationalInv(890D)
+    .leadTime(8D)
+    .inTransitQty(0D)
+    .forecast3Month(0D)
+    .forecast6Month(0D)
+    .forecast9Month(0D)
+    .sales1Month(0D)
+    .sales3Month(0D)
+    .sales6Month(0D)
+    .sales9Month(0D)
+    .minBank(0D)
+    .potentialIssue(BooleanEnum.No)
+    .piecesPastDue(0D)
+    .perf6MonthAvg(-99D)
+    .perf12MonthAvg(-99D)
+    .localBoQty(0D)
+    .deckRisk(BooleanEnum.No)
+    .deckRisk(BooleanEnum.No)
+    .oeConstraint(BooleanEnum.No)
+    .ppapRisk(BooleanEnum.No)
+    .stopAutoBuy(BooleanEnum.Yes)
+    .revStop(BooleanEnum.No)
+    .build(); // 1st data on `no`
 
   public static void main(String[] args) throws Exception {
     EasyPredictModelWrapper model = new EasyPredictModelWrapper(MojoModel.load("../top_model.zip"));
 
     List<ReorderDataModel> reorderDataModelList = Arrays
       .asList(
-        reorderDataModel1, reorderDataModel10
+        reorderDataModel1, reorderDataModel10, notReorderDataModel1
       );
 
     reorderDataModelList.forEach(reorderDataModel -> {

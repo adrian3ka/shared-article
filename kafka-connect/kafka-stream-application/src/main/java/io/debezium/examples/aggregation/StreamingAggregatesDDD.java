@@ -14,6 +14,7 @@ import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.Printed;
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
+import org.apache.kafka.streams.kstream.Produced;
 
 import java.util.Properties;
 
@@ -47,6 +48,8 @@ public class StreamingAggregatesDDD {
 
     final KStream<Long, User> userKStream =
       builder.stream(INPUT_TOPIC, Consumed.with(Serdes.Long(), userSerde));
+    
+    userKStream.to("processed_user_stream", Produced.with(Serdes.Long(), (Serde) userSerde));
 
     userKStream.print(Printed.toSysOut());
 
