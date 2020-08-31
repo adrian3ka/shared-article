@@ -25,10 +25,11 @@ Leaderboard.
 One of the available framework to achieve this purpose is H2O, it's possible for non-AI users, and it's also a friendly
 framework for the developer who didn't have any previous experience to analyzing or developing a model. Before we move 
 further, I want to define the goal first. The main goal is to train the model in the most common way for training a 
-model in `python` language using jupyter notebook, and then for the software engineer part we want to deliver the model
-in the most used language for the large scale applications with `java` language in the production. I have already
-provide ready to used example for you to be convenience to follow this guide. I choose `java` over any other languages
-because it one of the popular language on the industry, and it would be very relevant to the real world problem.
+machine learning model in `python` language using jupyter notebook, and then for the software engineer part we want to 
+deliver the model in the most used language for the large scale applications with `java` language in the production. 
+I have already provide ready to used example for you to be convenience to follow this guide. I choose `java` over any 
+other languages because it one of the popular language on the industry, and it would be very relevant to the real world 
+problem.
 
 First of all, we need to run the H2O in the docker that I already prepared for you, at the first line we want to make
 sure there is no docker container named `h2o` already exists in your computer / laptop. The next line is for running
@@ -168,7 +169,10 @@ validation on the Python code.
       );
 ```
 
-After that we would like to iterate all the data by using `forEach`. 
+After that we would like to iterate all the data by using `forEach` and it would predict by using
+`BinomialModelPrediction`. BinomialModelPrediction is the interface for predicting the `yes` `no` result based on the
+trained model also calculating the probability.
+
 ```
     reorderDataModelList.forEach(reorderDataModel -> {
       RowData row = new RowData();
@@ -218,12 +222,13 @@ Class probabilities: 0.9832578692993112,0.016742130700688782
 ```
 
 Finally, we could train and deploy our model into java, and you could see the predicted result, and the probability is
-absolutely the same between the model deployed on the python and deployed on java.
-
+absolutely the same between the model deployed on the python and deployed on java. So, we successfully done our
+objective to train the data on the python and deploy it into the java.
 -----
 Reference:
 - https://docs.h2o.ai/h2o/latest-stable/h2o-docs/automl.html accessed at 6th August 2020.
-
+- https://appdoc.app/artifact/ai.h2o/h2o-genmodel/3.2.0.9/hex/genmodel/easy/prediction/BinomialModelPrediction.html
+  accessed at 30th August 2020.
 ---
 ##### Note to self:
 ```
