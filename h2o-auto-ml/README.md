@@ -1,4 +1,4 @@
-# AutoML from development to production
+# End to End Automated Machine Learning Process using AutoML
 
 Prerequisite:
 - Docker
