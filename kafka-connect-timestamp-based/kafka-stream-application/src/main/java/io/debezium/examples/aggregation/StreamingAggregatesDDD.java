@@ -22,7 +22,7 @@ public class StreamingAggregatesDDD {
   private static final boolean ENABLE_AUTO_COMMIT_CONFIG = true;
 
   private static final String BOOTSTRAP_SERVER = "localhost:29092";
-  private static final String INPUT_TOPIC = "quickstart-jdbc-test";
+  private static final String INPUT_TOPIC = "timestamp-based-jdbc-test";
 
   public static void main(String[] args) {
     Properties props = new Properties();

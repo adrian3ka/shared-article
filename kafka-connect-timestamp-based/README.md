@@ -63,7 +63,7 @@
       --net=host \
       --rm \
       confluentinc/cp-kafka:5.0.0 \
-      kafka-topics --create --topic quickstart-json-offsets --partitions 1 \
+      kafka-topics --create --topic timestamp-based-json-offsets --partitions 1 \
       --replication-factor 1 --if-not-exists --zookeeper localhost:32181
    ```
    ```
@@ -71,14 +71,14 @@
      --net=host \
      --rm \
      confluentinc/cp-kafka:5.0.0 \
-     kafka-topics --create --topic quickstart-json-config --partitions 1 --replication-factor 1 --if-not-exists --zookeeper localhost:32181
+     kafka-topics --create --topic timestamp-based-json-config --partitions 1 --replication-factor 1 --if-not-exists --zookeeper localhost:32181
    ```
    ```
    docker run \
      --net=host \
      --rm \
      confluentinc/cp-kafka:5.0.0 \
-     kafka-topics --create --topic quickstart-json-status --partitions 1 --replication-factor 1 --if-not-exists --zookeeper localhost:32181
+     kafka-topics --create --topic timestamp-based-json-status --partitions 1 --replication-factor 1 --if-not-exists --zookeeper localhost:32181
    ```
    Before moving on, you can verify that the topics are created:
    ``` 
@@ -88,34 +88,18 @@
      confluentinc/cp-kafka:5.0.0 \
      kafka-topics --describe --zookeeper localhost:32181
    ```
-3. Download the latest MySQL JDBC driver and copy it to the jars folder. If you are running Docker Machine, you must SSH 
-   into the VM to run these commands. You may have to run the command as root.
 
-    First, create a folder named jars:
-    
-    ```
-    mkdir -p /tmp/quickstart/jars
-    mkdir -p /tmp/quickstart/files
-    touch /tmp/quickstart/files/jdbc-output.txt
-    ```
-    
-    Then download the JDBC driver:
-    ```
-    curl -k -SL "http://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-5.1.37.tar.gz" | tar -xzf - -C /tmp/quickstart/jars --strip-components=1 mysql-connector-java-5.1.37/mysql-connector-java-5.1.37-bin.jar
-    curl -k -SL "http://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-8.0.11.tar.gz" | tar -xzf - -C /tmp/quickstart/jars --strip-components=1 mysql-connector-java-8.0.11/mysql-connector-java-8.0.11.jar
-    ```
-
-4. Start a connect worker with Json support.
+3. Start a connect worker with Json support.
     ```
     docker run -d \
       --name=kafka-connect-json \
       --net=host \
       -e CONNECT_BOOTSTRAP_SERVERS=localhost:29092 \
       -e CONNECT_REST_PORT=28083 \
-      -e CONNECT_GROUP_ID="quickstart-json" \
-      -e CONNECT_CONFIG_STORAGE_TOPIC="quickstart-json-config" \
-      -e CONNECT_OFFSET_STORAGE_TOPIC="quickstart-json-offsets" \
-      -e CONNECT_STATUS_STORAGE_TOPIC="quickstart-json-status" \
+      -e CONNECT_GROUP_ID="timestamp-based-json" \
+      -e CONNECT_CONFIG_STORAGE_TOPIC="timestamp-based-json-config" \
+      -e CONNECT_OFFSET_STORAGE_TOPIC="timestamp-based-json-offsets" \
+      -e CONNECT_STATUS_STORAGE_TOPIC="timestamp-based-json-status" \
       -e CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR=1 \
       -e CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR=1 \
       -e CONNECT_STATUS_STORAGE_REPLICATION_FACTOR=1 \
@@ -128,15 +112,10 @@
       -e CONNECT_REST_ADVERTISED_HOST_NAME="localhost" \
       -e CONNECT_LOG4J_ROOT_LOGLEVEL=DEBUG \
       -e CONNECT_PLUGIN_PATH=/usr/share/java,/etc/kafka-connect/jars \
-      -v src=/tmp/quickstart/jars,target=/etc/kafka-connect/jars,type=bind \
-      -v src=/tmp/quickstart/file,target=/tmp/quickstart,type=bind \
       confluentinc/cp-kafka-connect:latest
     ```
     ```
     docker exec -it kafka-connect-json bash
-    mkdir -p /tmp/quickstart/
-    cd /tmp/quickstart/
-    touch jdbc-output.txt
     cd /etc/kafka-connect/jars/
     curl -k -SL "http://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-8.0.11.tar.gz" | tar -xzf - -C . --strip-components=1 mysql-connector-java-8.0.11/mysql-connector-java-8.0.11.jar
     exit
@@ -157,7 +136,7 @@
     First, launch the database container
     ```
     docker run -d \
-      --name=quickstart-mysql \
+      --name=timestamp-based-mysql \
       --net=host \
       -e MYSQL_ROOT_PASSWORD=confluent \
       -e MYSQL_USER=confluent \
@@ -167,7 +146,7 @@
     ```
     Next, Create databases and tables. You’ll need to exec into the Docker container to create the databases.
     ```
-    docker exec -it quickstart-mysql bash
+    docker exec -it timestamp-based-mysql bash
     ```
     On the bash prompt, create a MySQL shell. Wait for sometimes if you get error.
     ```
@@ -180,13 +159,12 @@
     
     DROP TABLE IF EXISTS test;
     
-    
     CREATE TABLE IF NOT EXISTS test (
       id serial NOT NULL PRIMARY KEY,
       name varchar(100),
       email varchar(200),
       department varchar(200),
-      modified timestamp default CURRENT_TIMESTAMP NOT NULL,
+      modified TIMESTAMP DEFAULT NOW() NOT NULL,
       INDEX `modified_index` (`modified`)
     );
     
@@ -221,17 +199,17 @@
     ```
     The output of this command should be similar to the message shown below:
     ```
-    {"name":"quickstart-jdbc-source","config":{"connector.class":"io.confluent.connect.jdbc.JdbcSourceConnector","tasks.max":"1","connection.url":"jdbc:mysql://127.0.0.1:3306/connect_test?user=root&password=confluent","mode":"incrementing","incrementing.column.name":"id","timestamp.column.name":"modified","topic.prefix":"quickstart-jdbc-","poll.interval.ms":"1000","name":"quickstart-jdbc-source"},"tasks":[]}
+    {"name":"timestamp-based-jdbc-source","config":{"connector.class":"io.confluent.connect.jdbc.JdbcSourceConnector","tasks.max":"1","connection.url":"jdbc:mysql://127.0.0.1:3306/connect_test?user=root&password=confluent","mode":"incrementing","incrementing.column.name":"id","timestamp.column.name":"modified","topic.prefix":"timestamp-based-jdbc-","poll.interval.ms":"1000","name":"timestamp-based-jdbc-source"},"tasks":[]}
     ```
     Check the status of the connector using curl as follows:
     ```
-    curl -s -X GET http://$CONNECT_HOST:28083/connectors/quickstart-jdbc-source/status
+    curl -s -X GET http://$CONNECT_HOST:28083/connectors/timestamp-based-jdbc-source/status
     ```
     You should see the following:
     ```
-    {"name":"quickstart-jdbc-source","connector":{"state":"RUNNING","worker_id":"localhost:28083"},"tasks":[{"state":"RUNNING","id":0,"worker_id":"localhost:28083"}]}
+    {"name":"timestamp-based-jdbc-source","connector":{"state":"RUNNING","worker_id":"localhost:28083"},"tasks":[{"state":"RUNNING","id":0,"worker_id":"localhost:28083"}]}
     ```
-    The JDBC sink create intermediate topics for storing data. We should see a quickstart-jdbc-test topic.
+    The JDBC sink create intermediate topics for storing data. We should see a timestamp-based-jdbc-test topic.
     ```
     docker run \
        --net=host \
@@ -241,14 +219,28 @@
     ```
    
     Now run the java application
-8. Run `kafka-stream-application`
-9. Once you’re done, cleaning up is simple. You can simply run 
+8. Run `kafka-stream-application`.
+
+9. Update the data inside mysql
+    
+   ```
+    docker exec -it timestamp-based-mysql bash
+    ```
+    On the bash prompt, create a MySQL shell. Wait for sometimes if you get error.
+    ```
+    mysql -u confluent -pconfluent
+    ```
+    Now, execute the following SQL statements:
+    ```
+    UPDATE test set name = 'Adrian', modified = NOW() WHERE id = 1;
+    ```
+10. Once you’re done, cleaning up is simple. You can simply run 
    `docker rm -f $(docker ps -a -q) && docker rmi $(docker images -a -q)` to delete all the 
    containers we created in the steps above. Because we allowed Kafka and ZooKeeper to store data on their respective 
    containers, there are no additional volumes to clean up. If you also want to remove the Docker machine you used, you 
    can do so using `docker-machine rm <machine-name>`.
-   
-   
+
+
 ---
 
 Clean up ports:

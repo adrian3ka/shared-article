@@ -1,0 +1,14 @@
+{
+  "name": "timestamp-based-jdbc-source",
+  "config": {
+    "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+    "tasks.max": 1,
+    "connection.url": "jdbc:mysql://127.0.0.1:3306/connect_test?user=confluent&password=confluent",
+    "mode": "timestamp",
+    "table.types": "TABLE",
+    "timestamp.column.name": "modified",
+    "topic.prefix": "timestamp-based-jdbc-",
+    "schema.ignore": true,
+    "poll.interval.ms": 30000
+  }
+}
